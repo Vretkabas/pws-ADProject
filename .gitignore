@@ -1,0 +1,25 @@
+# Credentials - NEVER commit these!
+Config/credentials.json
+Config/*password*.txt
+Config/pc1-password.txt
+
+# Outputs - generated files
+Output/*
+Logs/*
+Reports/*.html
+
+# Keep folder structure but ignore contents
+!Output/.gitkeep
+!Logs/.gitkeep
+!Reports/.gitkeep
+
+# PowerShell / Windows
+*.log
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+~$*
+
