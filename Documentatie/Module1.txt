@@ -1,0 +1,64 @@
+Voor functie in dangerousSettings.ps1
+Functie ==> Get-AdminCountAccounts
+Wat is AdminCount?
+adminCount is een attribuut in Active Directory dat automatisch op 1 wordt gezet wanneer een user lid wordt van een "protected group" (zoals Domain Admins, Enterprise Admins, Schema Admins, etc.).
+Wat doet het?
+Wanneer adminCount=1:
+
+De AdminSDHolder process beschermt dit account
+Elke 60 minuten worden de permissions gereset naar een veilige standaard
+Inheritance van permissions wordt uitgeschakeld
+
+Waarom is dit een probleem?
+Wanneer je iemand verwijdert uit een protected group:
+
+adminCount blijft op 1 staan (wordt NIET automatisch gereset)
+Permission inheritance blijft uitgeschakeld
+Het account heeft dus nog steeds speciale bescherming maar geen admin rechten meer
+
+Security risico: Deze "orphaned" accounts kunnen:
+
+Onopgemerkt blijven met oude, mogelijk te ruime permissions
+Moeilijk te beheren zijn omdat inheritance uit staat
+Een indicatie zijn van slordig account management
+
+Voorbeeld Scenario:
+1. Jan wordt Domain Admin → adminCount=1
+2. Jan wordt uit Domain Admins verwijderd
+3. adminCount blijft 1, maar Jan is geen admin meer
+4. "Orphaned" adminCount account
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+https://www.reddit.com/r/PowerShell/comments/17s71ez/user_with_admincount1_but_not_in_any_admin_group/
+voor functie in dangerousSettings.ps1
+functie ==> Get-SIDHistoryAccounts
+
+Wat is SIDHistory?
+SIDHistory is een attribuut dat oude SIDs (Security Identifiers) bevat van een account. Het wordt gebruikt tijdens domain migrations.
+Legitiem gebruik:
+Wanneer je een user migreert van Domain A naar Domain B:
+User in Domain A: SID = S-1-5-21-111-222-333-1001
+↓ migratie
+User in Domain B: SID = S-1-5-21-444-555-666-2001
+                  SIDHistory = S-1-5-21-111-222-333-1001
+Dit zorgt ervoor dat de user nog steeds toegang heeft tot resources in Domain A die gebaseerd zijn op de oude SID.
+Waarom is dit een security risico?
+1. Privilege Escalation:
+Een attacker kan een SID van een Domain Admin toevoegen aan SIDHistory:
+powershell# Als attacker Domain Admin SID toevoegt aan eigen account
+SIDHistory = S-1-5-21-domain-500  # Domain Admin SID
+→ Account heeft nu effectief Domain Admin rechten!
+2. Persistence:
+Zelfs na migratie kunnen oude privileges blijven bestaan via SIDHistory
+3. Golden Ticket Attacks:
+SIDHistory wordt vaak misbruikt in advanced attacks
+Red Flags:
+
+Accounts met SIDHistory buiten een migratie context
+SIDHistory van privileged accounts (Domain Admins, Enterprise Admins)
+SIDHistory die lang na een migratie nog aanwezig is* 
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
