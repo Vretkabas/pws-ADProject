@@ -12,10 +12,7 @@ function Get-OldDisabledAccounts {
     }
 
     # Standaard accounts uitsluiten
-    $defaultDisabledAccounts = @("Guest", "Administrator", "krbtgt", "DefaultAccount")
-    $accountsDisabled = $accountsDisabled | Where-Object {
-        $defaultDisabledAccounts -notcontains $_.SamAccountName
-    }
+    $accountsDisabled = Remove-DefaultAccounts -Accounts $accountsDisabled
 
     # resultaat tonen
     if ($accountsDisabled) {
@@ -26,5 +23,40 @@ function Get-OldDisabledAccounts {
     }
 }
 
+function Get-PasswordNeverExpiresAccounts {
+    # zoek accounts met PasswordNeverExpires instelling
+    $accountPWNeverExpires = Search-ADAccount -PasswordNeverExpires -UsersOnly | Select-Object Name, SamAccountName
+    # resultaat tonen
+    $accountPWNeverExpires = Remove-DefaultAccounts -Accounts $accountPWNeverExpires
+
+    if ($accountPWNeverExpires) {
+        $count = ($accountPWNeverExpires | Measure-Object).Count
+        Write-Host "$count account(s) with PasswordNeverExpires setting found" -ForegroundColor Yellow
+    } else {
+        Write-Host "No accounts with PasswordNeverExpires setting found." -ForegroundColor Green
+    }
+}
+
+
+#functie om default accounts uit te sluiten
+function Remove-DefaultAccounts {
+    param(
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [Object[]]$Accounts
+    )
+
+    # Standaard Windows built-in accounts die uitgesloten moeten worden
+    $defaultAccounts = @("Guest", "Administrator", "krbtgt", "DefaultAccount")
+
+    # Filter de default accounts eruit
+    $filteredAccounts = $Accounts | Where-Object {
+        $defaultAccounts -notcontains $_.SamAccountName
+    }
+
+    return $filteredAccounts
+}
+
+
 # functies aanroepen
 Get-OldDisabledAccounts -DaysDisabled 0
+Get-PasswordNeverExpiresAccounts
