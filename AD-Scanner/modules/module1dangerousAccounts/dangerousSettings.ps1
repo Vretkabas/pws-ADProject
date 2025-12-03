@@ -229,17 +229,3 @@ function Remove-DefaultAccounts {
         }
     }
 }
-
-# functies aanroepen
-Get-PasswordNeverExpiresAccounts
-Get-DisabledAccounts -DaysDisabled 30
-Get-InactiveAccounts -DaysInactive 60
-Get-ExpiredAccounts -DaysExpired 30
-Get-LockedOutAccounts
-Get-PasswordExpiredAccounts
-Get-DescriptionPassword
-Get-PasswordNotRequiredAccounts
-Get-CannotChangePasswordAccounts
-Get-OldPasswordAccounts -DaysOld 90
-Get-AdminCountAccounts
-Get-SIDHistoryAccounts
