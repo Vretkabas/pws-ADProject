@@ -4,7 +4,7 @@
 # hastable met alle informatie over de checks in module 1
 
 $checkInfo = @{
-    # Module 1: Dangerous Accounts
+    # Module 1: Dangerous Settings
     "Password Never Expires" = @{
         RiskLevel = "High"
         RiskColor = "#dc3545"
