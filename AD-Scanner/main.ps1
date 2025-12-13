@@ -8,7 +8,9 @@ param(
     [ValidateSet("All", "1", "2", "3", "4")]
     [string[]]$Modules = @("All"),
 
-    [switch]$SkipHTML
+    [switch]$SkipHTML,
+
+    [switch]$Force  # force om controle checks over te slaan
 )
 
 Write-Host "==================================================" -ForegroundColor Cyan
@@ -16,6 +18,25 @@ Write-Host "   AD Security Scanner - Starting Analysis" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "Scan started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
 Write-Host ""
+
+# Voer prerequisite checks uit (tenzij -Force is gebruikt)
+if (-not $Force) {
+    . "$PSScriptRoot\Modules\Checks.ps1"
+    $checksPass = Test-Prerequisites -StopOnFailure:$false
+
+    if (-not $checksPass) {
+        Write-Host "`nKritieke prerequisite checks gefaald." -ForegroundColor Red
+        Write-Host "De scan kan niet worden uitgevoerd." -ForegroundColor Red
+        Write-Host "`nOpties:" -ForegroundColor Yellow
+        Write-Host "  1. Los de bovenstaande problemen op en probeer opnieuw" -ForegroundColor Gray
+        Write-Host "  2. Gebruik -Force om de checks te negeren (NIET AANBEVOLEN)" -ForegroundColor Gray
+        Write-Host ""
+        exit 1
+    }
+} else {
+    Write-Host "WARNING: Prerequisite checks worden overgeslagen (-Force gebruikt)" -ForegroundColor Yellow
+    Write-Host "De resultaten kunnen onbetrouwbaar zijn!`n" -ForegroundColor Yellow
+}
 
 # Bepaal welke modules te runnen
 $runAll = $Modules -contains "All"

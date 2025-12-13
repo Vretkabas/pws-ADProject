@@ -1,0 +1,22 @@
+Module 2 detecties voor mezelf:
+
+Kerberoasting Targets (Zwakke Encryptie):
+svc_sql_rc4 - SQL service met RC4-only encryptie
+svc_web_des - Web service met DES (extreem zwak!)
+svc_fileserver - File service met RC4
+svc_app_all - Service met alle encryptie types (downgrade attacks)
+
+AS-REP Roasting Targets:
+user_nopreauth - User met pre-authenticatie uit
+svc_nopreauth_rc4 - Service met geen pre-auth + RC4
+Delegation Vulnerabilities:
+
+svc_unconstrained - Unconstrained delegation (CRITICAL!)
+svc_constrained - Constrained delegation naar LDAP/CIFS
+WEBSERVER01 - Computer met unconstrained delegation
+Combined Vulnerabilities:
+
+svc_critical_vuln - ALLE problemen tegelijk (worst case)
+svc_backup_vuln - DES + unconstrained delegation
+svc_secure_example - GOED voorbeeld ter vergelijking
+
