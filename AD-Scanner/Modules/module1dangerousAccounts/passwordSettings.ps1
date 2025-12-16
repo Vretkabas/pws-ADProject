@@ -102,16 +102,48 @@ function Get-FGPPPolicies {
 
 # Hoofdfunctie om alle password policies te verzamelen
 function Get-AllPasswordPolicies {
-    $allPolicies = @()
+    # Maak een hashtable waar PolicyName de key is
+    $policiesHashtable = @{}
 
-    # Haal Default Domain Password Policy op
-    $allPolicies += Get-DefaultPasswordPolicy
+    # Haal alle FGPPs op met hun toegewezen gebruikers
+    $fgppPolicies = Get-FGPPPolicies
 
-    # Haal alle FGPPs op
-    $allPolicies += Get-FGPPPolicies
+    # Verzamel alle gebruikers die al een FGPP hebben
+    $usersWithFGPP = @()
+    foreach ($policy in $fgppPolicies) {
+        if ($policy.AppliedUsers) {
+            $usersWithFGPP += ($policy.AppliedUsers -split ',')
+        }
+    }
+    $usersWithFGPP = $usersWithFGPP | Select-Object -Unique
 
-    return $allPolicies
+    # Haal alle AD gebruikers op (enabled users, exclusief SPN accounts)
+    $allUsers = Get-ADUser -Filter { Enabled -eq $true } -Properties ServicePrincipalName |
+                Where-Object { -not $_.ServicePrincipalName } |
+                Select-Object -ExpandProperty SamAccountName
+
+    # Bepaal welke gebruikers GEEN FGPP hebben (en dus default policy gebruiken)
+    $usersWithDefaultPolicy = $allUsers | Where-Object { $_ -notin $usersWithFGPP } | Sort-Object
+
+    # Haal Default Domain Password Policy op en voeg de gebruikerslijst toe
+    $defaultPolicy = Get-DefaultPasswordPolicy
+    $defaultPolicy | Add-Member -MemberType NoteProperty -Name "AppliedUsers" -Value ($usersWithDefaultPolicy -join ',') -Force
+    $defaultPolicy | Add-Member -MemberType NoteProperty -Name "AppliedUserCount" -Value $usersWithDefaultPolicy.Count -Force
+
+    # Voeg default policy toe aan hashtable (PolicyName als key, rest als value)
+    $policyName = $defaultPolicy.PolicyName
+    $policyValue = $defaultPolicy | Select-Object -Property * -ExcludeProperty PolicyName
+    $policiesHashtable[$policyName] = $policyValue
+
+    # Voeg alle FGPPs toe aan hashtable
+    foreach ($policy in $fgppPolicies) {
+        $policyName = $policy.PolicyName
+        $policyValue = $policy | Select-Object -Property * -ExcludeProperty PolicyName
+        $policiesHashtable[$policyName] = $policyValue
+    }
+
+    return $policiesHashtable
 }
 
 # Return alle password policies
-Get-AllPasswordPolicies
+# Get-AllPasswordPolicies

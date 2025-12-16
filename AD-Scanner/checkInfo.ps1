@@ -173,5 +173,8 @@ $checkInfo = @{
     }
 }
 
+# FGPP en default password policy info
+
+
 # Export de hashtable zodat andere scripts het kunnen gebruiken
 return $checkInfo

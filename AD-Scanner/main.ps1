@@ -48,9 +48,9 @@ $runAll = $Modules -contains "All"
 $allModuleResults = [ordered]@{}
 
 # Module 1: Dangerous Accounts
-if (($runAll -or $Modules -contains "1") -and (Test-Path "$PSScriptRoot\Modules\module1dangerousAccounts\main.ps1")) {
+if (($runAll -or $Modules -contains "1") -and (Test-Path "$PSScriptRoot\Modules\module1dangerousAccounts\module1.ps1")) {
     Write-Host "`nRunning Module 1: Dangerous Accounts..." -ForegroundColor Yellow
-    $module1Results = & "$PSScriptRoot\Modules\module1dangerousAccounts\main.ps1"
+    $module1Results = & "$PSScriptRoot\Modules\module1dangerousAccounts\module1.ps1"
     $allModuleResults["Module 1 - Dangerous Accounts"] = $module1Results
 }
 
