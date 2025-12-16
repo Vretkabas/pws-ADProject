@@ -24,33 +24,67 @@ function Get-DefaultPasswordPolicy {
     }
 }
 
-# Haal alle Fine-Grained Password Policies op
+# Haal alle Fine-Grained Password Policies op met hun targets
 function Get-FGPPPolicies {
-    $fgppPolicies = Get-ADFineGrainedPasswordPolicy -Filter * -Properties AppliesTo, Name, Precedence
+    # Haal alle FGPP's op en sorteer op precedence (laagste eerst)
+    $fgpps = Get-ADFineGrainedPasswordPolicy -Filter * -Properties AppliesTo, Name, Precedence | Sort-Object Precedence
+
+    # Track welke gebruikers al zijn toegewezen aan een FGPP met hogere prioriteit
+    $assignedUsers = @{}
     $results = @()
 
-    foreach ($fgpp in $fgppPolicies) {
-        # Haal de groepen/users op waar deze FGPP op van toepassing is
-        $appliesTo = @()
-        foreach ($target in $fgpp.AppliesTo) {
-            try {
-                $adObject = Get-ADObject -Identity $target -Properties Name, ObjectClass
-                $appliesTo += [PSCustomObject]@{
-                    Name              = $adObject.Name
-                    Type              = $adObject.ObjectClass
-                    DistinguishedName = $adObject.DistinguishedName
-                }
+    # Voor elke FGPP, verzamel data en linked users
+    foreach ($fgpp in $fgpps) {
+        # Haal alle users/groups op waar deze FGPP aan gekoppeld is
+        $linkedSubjects = Get-ADFineGrainedPasswordPolicySubject -Identity $fgpp.Name -ErrorAction SilentlyContinue
+
+        # Verzamel alle SAMAccountNames van gebruikers die deze policy krijgen
+        $userSAMAccountNames = @()
+
+        foreach ($subject in $linkedSubjects) {
+            if ($subject.ObjectClass -eq 'user') {
+                # Directe gebruiker
+                $userSAMAccountNames += $subject.SamAccountName
             }
-            catch {
-                Write-Warning "Could not resolve FGPP target: $target"
+            elseif ($subject.ObjectClass -eq 'group') {
+                # Haal alle gebruikers uit de groep (recursief voor geneste groepen)
+                try {
+                    $groupMembers = Get-ADGroupMember -Identity $subject.DistinguishedName -Recursive -ErrorAction SilentlyContinue |
+                                    Where-Object { $_.objectClass -eq 'user' }
+
+                    foreach ($member in $groupMembers) {
+                        $userSAMAccountNames += $member.SamAccountName
+                    }
+                }
+                catch {
+                    Write-Warning "Kon leden van groep '$($subject.Name)' niet ophalen: $_"
+                }
             }
         }
 
+        # Verwijder duplicaten
+        $userSAMAccountNames = $userSAMAccountNames | Select-Object -Unique
+
+        # Filter gebruikers die al zijn toegewezen aan een FGPP met hogere prioriteit (lagere precedence)
+        $finalUsers = @()
+        foreach ($user in $userSAMAccountNames) {
+            if (-not $assignedUsers.ContainsKey($user)) {
+                $finalUsers += $user
+                # Markeer deze gebruiker als toegewezen
+                $assignedUsers[$user] = $fgpp.Precedence
+            }
+        }
+
+        # Sorteer de uiteindelijke lijst
+        $finalUsers = $finalUsers | Sort-Object
+
+        # Maak resultaat object met comma-separated SAMAccountNames
         $results += [PSCustomObject]@{
             PolicyName                  = $fgpp.Name
             PolicyType                  = "FGPP"
             Precedence                  = $fgpp.Precedence
-            AppliesTo                   = $appliesTo
+            AppliedUsers                = ($finalUsers -join ',')
+            AppliedUserCount            = $finalUsers.Count
             MinPasswordLength           = $fgpp.MinPasswordLength
             MinPasswordAge              = $fgpp.MinPasswordAge.Days
             MaxPasswordAge              = $fgpp.MaxPasswordAge.Days
