@@ -210,7 +210,7 @@ function Get-SIDHistoryAccounts {
     return $accounts
 }
 
-#functie om default accounts uit te sluiten
+#functie om default accounts en SPN accounts uit te sluiten
 function Remove-DefaultAccounts {
     param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
@@ -223,9 +223,18 @@ function Remove-DefaultAccounts {
     }
 
     process {
-        # Filter de default accounts eruit
+        # Filter de default accounts en SPN accounts eruit
+        # SPN accounts worden geaudit in Module 2 (Kerberos)
         $Accounts | Where-Object {
             $defaultAccounts -notcontains $_.SamAccountName
+        } | ForEach-Object {
+            # Haal volledige user details op om SPN te checken
+            $userDetails = Get-ADUser $_.SamAccountName -Properties ServicePrincipalName -ErrorAction SilentlyContinue
+
+            # Alleen retourneren als GEEN SPN
+            if (-not $userDetails.ServicePrincipalName) {
+                $_
+            }
         }
     }
 }
