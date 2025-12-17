@@ -110,14 +110,22 @@ function Get-PasswordPolicyAnalysis {
 
         foreach ($subject in $linkedSubjects) {
             if ($subject.ObjectClass -eq 'user') {
-                $userSAMAccountNames += $subject.SamAccountName
+                # Check if user is NOT a service account (no SPN)
+                $userDetails = Get-ADUser -Identity $subject.DistinguishedName -Properties ServicePrincipalName -ErrorAction SilentlyContinue
+                if ($userDetails -and -not $userDetails.ServicePrincipalName) {
+                    $userSAMAccountNames += $subject.SamAccountName
+                }
             }
             elseif ($subject.ObjectClass -eq 'group') {
                 try {
                     $groupMembers = Get-ADGroupMember -Identity $subject.DistinguishedName -Recursive -ErrorAction SilentlyContinue |
                                     Where-Object { $_.objectClass -eq 'user' }
                     foreach ($member in $groupMembers) {
-                        $userSAMAccountNames += $member.SamAccountName
+                        # Check if user is NOT a service account (no SPN)
+                        $userDetails = Get-ADUser -Identity $member.DistinguishedName -Properties ServicePrincipalName -ErrorAction SilentlyContinue
+                        if ($userDetails -and -not $userDetails.ServicePrincipalName) {
+                            $userSAMAccountNames += $member.SamAccountName
+                        }
                     }
                 }
                 catch {
@@ -141,8 +149,8 @@ function Get-PasswordPolicyAnalysis {
         # Check voor issues in deze policy
         $issues = Get-PolicyIssues -Policy $fgpp -PolicyType "FGPP"
 
-        # Alleen toevoegen als er issues zijn
-        if ($issues.Count -gt 0) {
+        # Alleen toevoegen als er issues zijn EN er zijn non-SPN users
+        if ($issues.Count -gt 0 -and $finalUsers.Count -gt 0) {
             $results[$fgpp.Name] = [PSCustomObject]@{
                 PolicyType       = "FGPP"
                 Precedence       = $fgpp.Precedence
@@ -152,6 +160,9 @@ function Get-PasswordPolicyAnalysis {
             }
 
             Write-Host "  [!] $($fgpp.Name): $($issues.Count) issue(s), $($finalUsers.Count) user(s)" -ForegroundColor Yellow
+        }
+        elseif ($issues.Count -gt 0 -and $finalUsers.Count -eq 0) {
+            Write-Host "  [SKIP] $($fgpp.Name): Has issues but only applies to service accounts (will be checked in Module 2)" -ForegroundColor Cyan
         }
         else {
             Write-Host "  [OK] $($fgpp.Name): No issues found" -ForegroundColor Green
@@ -172,8 +183,8 @@ function Get-PasswordPolicyAnalysis {
     # Check voor issues in default policy
     $defaultIssues = Get-PolicyIssues -Policy $defaultPolicy -PolicyType "Default"
 
-    # Alleen toevoegen als er issues zijn
-    if ($defaultIssues.Count -gt 0) {
+    # Alleen toevoegen als er issues zijn EN er zijn non-SPN users
+    if ($defaultIssues.Count -gt 0 -and $defaultPolicyUsers.Count -gt 0) {
         $results["Default Domain Password Policy"] = [PSCustomObject]@{
             PolicyType       = "Default"
             Precedence       = 999  # Laagste prioriteit
@@ -183,6 +194,9 @@ function Get-PasswordPolicyAnalysis {
         }
 
         Write-Host "  [!] Default Domain Password Policy: $($defaultIssues.Count) issue(s), $($defaultPolicyUsers.Count) user(s)" -ForegroundColor Yellow
+    }
+    elseif ($defaultIssues.Count -gt 0 -and $defaultPolicyUsers.Count -eq 0) {
+        Write-Host "  [SKIP] Default Domain Password Policy: Has issues but only applies to service accounts (will be checked in Module 2)" -ForegroundColor Cyan
     }
     else {
         Write-Host "  [OK] Default Domain Password Policy: No issues found" -ForegroundColor Green

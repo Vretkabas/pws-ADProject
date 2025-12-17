@@ -171,10 +171,119 @@ $checkInfo = @{
 "@
         References = ""
     }
+
+    # === Password Policy Checks ===
+    "Minimum Password Length" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Password policies with minimum password length below 12 characters are vulnerable to brute-force and dictionary attacks. Shorter passwords can be cracked exponentially faster."
+        Remediation = @"
+1. Set minimum password length to at least 12 characters (14+ recommended)
+2. Update the Fine-Grained Password Policy or Default Domain Policy
+3. Force password reset for all affected users
+4. Educate users on creating strong passphrases
+5. Consider implementing password complexity requirements alongside length
+"@
+        References = ""
+    }
+
+    "Maximum Password Age" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Passwords that never expire (0 days) or expire too infrequently (>365 days) increase the risk window if credentials are compromised. However, overly frequent changes can lead to weaker password patterns."
+        Remediation = @"
+1. Set maximum password age between 60-365 days (90 days is common)
+2. Balance security with usability (too frequent changes = weak patterns)
+3. Consider implementing MFA as alternative to frequent password changes
+4. For service accounts, use Managed Service Accounts instead
+5. Update Fine-Grained Password Policy or Default Domain Policy
+"@
+        References = ""
+    }
+
+    "Minimum Password Age" = @{
+        RiskLevel = "Low"
+        RiskColor = "#ffc107"
+        Description = "A minimum password age of 0 days allows users to change their password multiple times immediately to bypass password history requirements, effectively reusing old passwords."
+        Remediation = @"
+1. Set minimum password age to at least 1 day
+2. This prevents rapid password cycling to bypass history
+3. Update Fine-Grained Password Policy or Default Domain Policy
+4. Ensure password history is also properly configured (12+ remembered passwords)
+"@
+        References = ""
+    }
+
+    "Password History" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Password history below 12 allows users to quickly cycle back to previously used passwords, which may be compromised or weak. This defeats the purpose of password rotation."
+        Remediation = @"
+1. Set password history count to at least 12 (24 is recommended)
+2. Combine with minimum password age to prevent rapid cycling
+3. Update Fine-Grained Password Policy or Default Domain Policy
+4. Consider implementing banned password lists for additional protection
+"@
+        References = ""
+    }
+
+    "Password Complexity" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "CRITICAL: Password complexity requirements are disabled. Without complexity, users can set simple passwords like 'password123' or 'companyname', making brute-force attacks trivial."
+        Remediation = @"
+1. IMMEDIATELY enable password complexity requirements
+2. This enforces uppercase, lowercase, numbers, and special characters
+3. Update Fine-Grained Password Policy or Default Domain Policy
+4. Force password reset for all affected users with current simple passwords
+5. Scan for common weak passwords and force changes
+"@
+        References = ""
+    }
+
+    "Account Lockout Threshold" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Account lockout disabled (threshold = 0) allows unlimited password guessing attempts. Attackers can perform brute-force attacks without detection or interruption."
+        Remediation = @"
+1. Enable account lockout by setting threshold between 5-10 invalid attempts
+2. Set lockout duration to at least 15 minutes
+3. Configure lockout observation window appropriately
+4. Update Fine-Grained Password Policy or Default Domain Policy
+5. Implement monitoring for lockout events to detect attacks
+"@
+        References = ""
+    }
+
+    "Lockout Duration" = @{
+        RiskLevel = "Low"
+        RiskColor = "#ffc107"
+        Description = "Lockout duration below 15 minutes may not provide sufficient deterrent against automated brute-force attacks. Very short durations allow attackers to resume quickly."
+        Remediation = @"
+1. Set lockout duration to at least 15 minutes
+2. Consider 30-60 minutes for high-security environments
+3. Balance security with user experience
+4. Update Fine-Grained Password Policy or Default Domain Policy
+5. Ensure helpdesk has procedures for legitimate lockouts
+"@
+        References = ""
+    }
+
+    "Reversible Encryption" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL VULNERABILITY: Reversible password encryption is enabled. This stores passwords in a format that can be decrypted back to plaintext, essentially defeating password hashing. If the AD database is compromised, ALL passwords can be recovered."
+        Remediation = @"
+1. IMMEDIATELY disable reversible encryption
+2. Force password reset for ALL affected users (passwords are exposed)
+3. Investigate why this was enabled and by whom
+4. Audit for potential unauthorized access during exposure period
+5. Update Fine-Grained Password Policy or Default Domain Policy
+6. NEVER enable this setting unless absolutely required by legacy applications
+"@
+        References = ""
+    }
 }
-
-# FGPP en default password policy info
-
 
 # Export de hashtable zodat andere scripts het kunnen gebruiken
 return $checkInfo
