@@ -47,11 +47,16 @@ $runAll = $Modules -contains "All"
 # Verzamel resultaten van alle modules
 $allModuleResults = [ordered]@{}
 
-# Module 1: Dangerous Accounts
+# Module 1: Dangerous Accounts & Password Policies
 if (($runAll -or $Modules -contains "1") -and (Test-Path "$PSScriptRoot\Modules\module1dangerousAccounts\module1.ps1")) {
     Write-Host "`nRunning Module 1: Dangerous Accounts..." -ForegroundColor Yellow
     $module1Results = & "$PSScriptRoot\Modules\module1dangerousAccounts\module1.ps1"
-    $allModuleResults["Module 1 - Dangerous Accounts"] = $module1Results
+
+    # Account checks gaan naar Module 1
+    $allModuleResults["Module 1 - Dangerous Accounts"] = $module1Results.AccountChecks
+
+    # Password Policies krijgen hun eigen sectie
+    $allModuleResults["Password Policies"] = $module1Results.PasswordPolicies
 }
 
 Write-Host "`n==================================================" -ForegroundColor Cyan

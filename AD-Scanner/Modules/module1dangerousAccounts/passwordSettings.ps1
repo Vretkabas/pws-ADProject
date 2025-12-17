@@ -1,57 +1,121 @@
 # Deze module verzamelt password policy data uit Active Directory
-# Severity checks worden gedaan in checkInfo.ps1
+# Alleen ruwe data + issues - severity/recommendations worden in checkInfo.ps1 gedefinieerd
 
 Import-Module ActiveDirectory
 
-# Haal de default domain password policy op
-function Get-DefaultPasswordPolicy {
-    $defaultPolicy = Get-ADDefaultDomainPasswordPolicy
-    $domainDN = (Get-ADDomain).DistinguishedName
+#region Helper Functions
 
-    return [PSCustomObject]@{
-        PolicyName                  = "Default Domain Password Policy"
-        PolicyType                  = "Default"
-        AppliesTo                   = $domainDN
-        MinPasswordLength           = $defaultPolicy.MinPasswordLength
-        MinPasswordAge              = $defaultPolicy.MinPasswordAge.Days
-        MaxPasswordAge              = $defaultPolicy.MaxPasswordAge.Days
-        PasswordHistoryCount        = $defaultPolicy.PasswordHistoryCount
-        ComplexityEnabled           = $defaultPolicy.ComplexityEnabled
-        LockoutThreshold            = $defaultPolicy.LockoutThreshold
-        LockoutDuration             = $defaultPolicy.LockoutDuration.Minutes
-        LockoutObservationWindow    = $defaultPolicy.LockoutObservationWindow.Minutes
-        ReversibleEncryptionEnabled = $defaultPolicy.ReversibleEncryptionEnabled
+function Get-PolicyIssues {
+    param(
+        [object]$Policy,
+        [string]$PolicyType
+    )
+
+    $issues = @()
+
+    # Min Password Length check (< 12 is zwak)
+    if ($Policy.MinPasswordLength -lt 12) {
+        $issues += [PSCustomObject]@{
+            Setting      = "Minimum Password Length"
+            CurrentValue = $Policy.MinPasswordLength
+        }
     }
+
+    # Max Password Age check (0 = never, >365 = te lang)
+    $maxAgeDays = $Policy.MaxPasswordAge.Days
+    if ($maxAgeDays -eq 0) {
+        $issues += [PSCustomObject]@{
+            Setting      = "Maximum Password Age"
+            CurrentValue = "Never expires"
+        }
+    }
+    elseif ($maxAgeDays -gt 365) {
+        $issues += [PSCustomObject]@{
+            Setting      = "Maximum Password Age"
+            CurrentValue = "$maxAgeDays days"
+        }
+    }
+
+    # Min Password Age check (0 = geen minimum)
+    if ($Policy.MinPasswordAge.Days -eq 0) {
+        $issues += [PSCustomObject]@{
+            Setting      = "Minimum Password Age"
+            CurrentValue = "0 days (none)"
+        }
+    }
+
+    # Password History check (< 12 is zwak)
+    if ($Policy.PasswordHistoryCount -lt 12) {
+        $issues += [PSCustomObject]@{
+            Setting      = "Password History"
+            CurrentValue = $Policy.PasswordHistoryCount
+        }
+    }
+
+    # Complexity check
+    if (-not $Policy.ComplexityEnabled) {
+        $issues += [PSCustomObject]@{
+            Setting      = "Password Complexity"
+            CurrentValue = "Disabled"
+        }
+    }
+
+    # Lockout Threshold check (0 = geen lockout)
+    if ($Policy.LockoutThreshold -eq 0) {
+        $issues += [PSCustomObject]@{
+            Setting      = "Account Lockout Threshold"
+            CurrentValue = "Disabled (no lockout)"
+        }
+    }
+
+    # Lockout Duration check (alleen als lockout aan staat, < 15 min is zwak)
+    if ($Policy.LockoutThreshold -gt 0) {
+        $lockoutMinutes = $Policy.LockoutDuration.TotalMinutes
+        if ($lockoutMinutes -lt 15 -and $lockoutMinutes -ne 0) {
+            $issues += [PSCustomObject]@{
+                Setting      = "Lockout Duration"
+                CurrentValue = "$lockoutMinutes minutes"
+            }
+        }
+    }
+
+    # Reversible Encryption check (CRITICAL)
+    if ($Policy.ReversibleEncryptionEnabled) {
+        $issues += [PSCustomObject]@{
+            Setting      = "Reversible Encryption"
+            CurrentValue = "Enabled"
+        }
+    }
+
+    return $issues
 }
 
-# Haal alle Fine-Grained Password Policies op met hun targets
-function Get-FGPPPolicies {
-    # Haal alle FGPP's op en sorteer op precedence (laagste eerst)
-    $fgpps = Get-ADFineGrainedPasswordPolicy -Filter * -Properties AppliesTo, Name, Precedence | Sort-Object Precedence
+#endregion
 
-    # Track welke gebruikers al zijn toegewezen aan een FGPP met hogere prioriteit
-    $assignedUsers = @{}
-    $results = @()
+#region Main Function
 
-    # Voor elke FGPP, verzamel data en linked users
+function Get-PasswordPolicyAnalysis {
+    Write-Host "`nAnalyzing Password Policies..." -ForegroundColor Cyan
+
+    $results = @{}
+
+    # === FGPP Policies ===
+    $fgpps = Get-ADFineGrainedPasswordPolicy -Filter * -Properties * | Sort-Object Precedence
+    $assignedUsers = @{}  # Track welke users al een FGPP hebben
+
     foreach ($fgpp in $fgpps) {
-        # Haal alle users/groups op waar deze FGPP aan gekoppeld is
+        # Haal users op die onder deze FGPP vallen
         $linkedSubjects = Get-ADFineGrainedPasswordPolicySubject -Identity $fgpp.Name -ErrorAction SilentlyContinue
-
-        # Verzamel alle SAMAccountNames van gebruikers die deze policy krijgen
         $userSAMAccountNames = @()
 
         foreach ($subject in $linkedSubjects) {
             if ($subject.ObjectClass -eq 'user') {
-                # Directe gebruiker
                 $userSAMAccountNames += $subject.SamAccountName
             }
             elseif ($subject.ObjectClass -eq 'group') {
-                # Haal alle gebruikers uit de groep (recursief voor geneste groepen)
                 try {
                     $groupMembers = Get-ADGroupMember -Identity $subject.DistinguishedName -Recursive -ErrorAction SilentlyContinue |
                                     Where-Object { $_.objectClass -eq 'user' }
-
                     foreach ($member in $groupMembers) {
                         $userSAMAccountNames += $member.SamAccountName
                     }
@@ -62,88 +126,71 @@ function Get-FGPPPolicies {
             }
         }
 
-        # Verwijder duplicaten
         $userSAMAccountNames = $userSAMAccountNames | Select-Object -Unique
 
-        # Filter gebruikers die al zijn toegewezen aan een FGPP met hogere prioriteit (lagere precedence)
+        # Filter users die al een hogere prioriteit FGPP hebben
         $finalUsers = @()
         foreach ($user in $userSAMAccountNames) {
             if (-not $assignedUsers.ContainsKey($user)) {
                 $finalUsers += $user
-                # Markeer deze gebruiker als toegewezen
                 $assignedUsers[$user] = $fgpp.Precedence
             }
         }
-
-        # Sorteer de uiteindelijke lijst
         $finalUsers = $finalUsers | Sort-Object
 
-        # Maak resultaat object met comma-separated SAMAccountNames
-        $results += [PSCustomObject]@{
-            PolicyName                  = $fgpp.Name
-            PolicyType                  = "FGPP"
-            Precedence                  = $fgpp.Precedence
-            AppliedUsers                = ($finalUsers -join ',')
-            AppliedUserCount            = $finalUsers.Count
-            MinPasswordLength           = $fgpp.MinPasswordLength
-            MinPasswordAge              = $fgpp.MinPasswordAge.Days
-            MaxPasswordAge              = $fgpp.MaxPasswordAge.Days
-            PasswordHistoryCount        = $fgpp.PasswordHistoryCount
-            ComplexityEnabled           = $fgpp.ComplexityEnabled
-            LockoutThreshold            = $fgpp.LockoutThreshold
-            LockoutDuration             = $fgpp.LockoutDuration.Minutes
-            LockoutObservationWindow    = $fgpp.LockoutObservationWindow.Minutes
-            ReversibleEncryptionEnabled = $fgpp.ReversibleEncryptionEnabled
+        # Check voor issues in deze policy
+        $issues = Get-PolicyIssues -Policy $fgpp -PolicyType "FGPP"
+
+        # Alleen toevoegen als er issues zijn
+        if ($issues.Count -gt 0) {
+            $results[$fgpp.Name] = [PSCustomObject]@{
+                PolicyType       = "FGPP"
+                Precedence       = $fgpp.Precedence
+                AppliedUsers     = $finalUsers
+                AppliedUserCount = $finalUsers.Count
+                Issues           = $issues
+            }
+
+            Write-Host "  [!] $($fgpp.Name): $($issues.Count) issue(s), $($finalUsers.Count) user(s)" -ForegroundColor Yellow
+        }
+        else {
+            Write-Host "  [OK] $($fgpp.Name): No issues found" -ForegroundColor Green
         }
     }
 
-    return $results
-}
+    # === Default Domain Password Policy ===
+    $defaultPolicy = Get-ADDefaultDomainPasswordPolicy
 
-# Hoofdfunctie om alle password policies te verzamelen
-function Get-AllPasswordPolicies {
-    # Maak een hashtable waar PolicyName de key is
-    $policiesHashtable = @{}
-
-    # Haal alle FGPPs op met hun toegewezen gebruikers
-    $fgppPolicies = Get-FGPPPolicies
-
-    # Verzamel alle gebruikers die al een FGPP hebben
-    $usersWithFGPP = @()
-    foreach ($policy in $fgppPolicies) {
-        if ($policy.AppliedUsers) {
-            $usersWithFGPP += ($policy.AppliedUsers -split ',')
-        }
-    }
-    $usersWithFGPP = $usersWithFGPP | Select-Object -Unique
-
-    # Haal alle AD gebruikers op (enabled users, exclusief SPN accounts)
+    # Bepaal welke users GEEN FGPP hebben (en dus default policy gebruiken)
     $allUsers = Get-ADUser -Filter { Enabled -eq $true } -Properties ServicePrincipalName |
                 Where-Object { -not $_.ServicePrincipalName } |
                 Select-Object -ExpandProperty SamAccountName
 
-    # Bepaal welke gebruikers GEEN FGPP hebben (en dus default policy gebruiken)
-    $usersWithDefaultPolicy = $allUsers | Where-Object { $_ -notin $usersWithFGPP } | Sort-Object
+    $usersWithFGPP = $assignedUsers.Keys
+    $defaultPolicyUsers = $allUsers | Where-Object { $_ -notin $usersWithFGPP } | Sort-Object
 
-    # Haal Default Domain Password Policy op en voeg de gebruikerslijst toe
-    $defaultPolicy = Get-DefaultPasswordPolicy
-    $defaultPolicy | Add-Member -MemberType NoteProperty -Name "AppliedUsers" -Value ($usersWithDefaultPolicy -join ',') -Force
-    $defaultPolicy | Add-Member -MemberType NoteProperty -Name "AppliedUserCount" -Value $usersWithDefaultPolicy.Count -Force
+    # Check voor issues in default policy
+    $defaultIssues = Get-PolicyIssues -Policy $defaultPolicy -PolicyType "Default"
 
-    # Voeg default policy toe aan hashtable (PolicyName als key, rest als value)
-    $policyName = $defaultPolicy.PolicyName
-    $policyValue = $defaultPolicy | Select-Object -Property * -ExcludeProperty PolicyName
-    $policiesHashtable[$policyName] = $policyValue
+    # Alleen toevoegen als er issues zijn
+    if ($defaultIssues.Count -gt 0) {
+        $results["Default Domain Password Policy"] = [PSCustomObject]@{
+            PolicyType       = "Default"
+            Precedence       = 999  # Laagste prioriteit
+            AppliedUsers     = $defaultPolicyUsers
+            AppliedUserCount = $defaultPolicyUsers.Count
+            Issues           = $defaultIssues
+        }
 
-    # Voeg alle FGPPs toe aan hashtable
-    foreach ($policy in $fgppPolicies) {
-        $policyName = $policy.PolicyName
-        $policyValue = $policy | Select-Object -Property * -ExcludeProperty PolicyName
-        $policiesHashtable[$policyName] = $policyValue
+        Write-Host "  [!] Default Domain Password Policy: $($defaultIssues.Count) issue(s), $($defaultPolicyUsers.Count) user(s)" -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "  [OK] Default Domain Password Policy: No issues found" -ForegroundColor Green
     }
 
-    return $policiesHashtable
+    Write-Host "Password Policy analysis completed." -ForegroundColor Green
+
+    return $results
 }
 
-# Return alle password policies
-# Get-AllPasswordPolicies
+#endregion

@@ -1,12 +1,13 @@
-# Module 1: Dangerous Accounts
-# Dit script verzamelt alle gevaarlijke account settings en returned de resultaten
+# Module 1: Dangerous Accounts & Password Policies
+# Dit script verzamelt alle gevaarlijke account settings en password policy data
 
 # Import functies
 . "$PSScriptRoot\dangerousSettings.ps1"
+. "$PSScriptRoot\passwordSettings.ps1"
 
 Write-Host "`n=== Module 1: Dangerous Accounts ===" -ForegroundColor Cyan
 
-# Verzamel alle resultaten module 1
+# Account checks
 $module1Results = @{
     "Password Never Expires" = Get-PasswordNeverExpiresAccounts
     "Disabled Accounts (>30 days)" = Get-DisabledAccounts -DaysDisabled 30
@@ -22,7 +23,13 @@ $module1Results = @{
     "SID History" = Get-SIDHistoryAccounts
 }
 
+# Password Policy data
+$passwordPolicyResults = Get-PasswordPolicyAnalysis
+
 Write-Host "Module 1 completed." -ForegroundColor Green
 
-# Return resultaten voor gebruik in main script
-return $module1Results
+# Return beide resultaten als hashtable
+return @{
+    AccountChecks    = $module1Results
+    PasswordPolicies = $passwordPolicyResults
+}
