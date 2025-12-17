@@ -37,7 +37,7 @@ if (-not $Force) {
     Write-Host "WARNING: Prerequisite checks worden overgeslagen (-Force gebruikt)" -ForegroundColor Yellow
     Write-Host "De resultaten kunnen onbetrouwbaar zijn!`n" -ForegroundColor Yellow
 }
-
+# test
 # Bepaal welke modules te runnen
 $runAll = $Modules -contains "All"
 
