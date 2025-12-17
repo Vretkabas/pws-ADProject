@@ -44,15 +44,21 @@ function Get-EncryptionType {
         }
 
         # Maak resultaat object
+        $hasAES = ($encTypeValue -band 24) -gt 0              # AES128 (8) + AES256 (16) = 24
+        $hasDES = ($encTypeValue -band 3) -gt 0               # DES-CBC-CRC (1) + DES-CBC-MD5 (2) = 3
+        $hasRC4 = ($encTypeValue -band 4) -gt 0 -or ($null -eq $encTypeValue -or $encTypeValue -eq 0)  # RC4 (4) or not configured
+
         $result = [PSCustomObject]@{
             SamAccountName        = $spnDetails.SamAccountName
             ServicePrincipalNames = ($spnDetails.ServicePrincipalName -join "; ")
             EncryptionTypeValue   = $encTypeValue
             EncryptionTypes       = ($enabledEncTypes -join ", ")
-            HasWeakEncryption     = ($encTypeValue -band 7) -gt 0  # DES-CBC-CRC (1) + DES-CBC-MD5 (2) + RC4 (4) = 7
-            HasDES                = ($encTypeValue -band 3) -gt 0              # DES-CBC-CRC (1) + DES-CBC-MD5 (2) = 3
-            HasRC4Only            = ($encTypeValue -eq 4)
-            HasAES                = ($encTypeValue -band 24) -gt 0             # AES128 (8) + AES256 (16) = 24
+            HasDES                = $hasDES
+            HasRC4                = $hasRC4
+            HasRC4Only            = $hasRC4 -and -not $hasAES -and -not $hasDES  # Only RC4, no AES or DES
+            HasAES                = $hasAES
+            HasAESOnly            = $hasAES -and -not $hasRC4 -and -not $hasDES  # Only AES (best practice)
+            HasWeakEncryption     = ($hasDES -or ($hasRC4 -and -not $hasAES))    # DES OR (RC4 without AES)
         }
 
         $spnList += $result
@@ -101,5 +107,6 @@ function Get-SPNAccountSettings {
 
 # #3
 
-Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
+
+# Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
 # Get-EncryptionType -servicePrincipalName $(Get-ServiceAccounts)
