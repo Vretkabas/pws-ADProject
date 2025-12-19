@@ -77,6 +77,9 @@ function Get-SPNAccountSettings {
     # Elke SPN acc afgaan
     foreach ($spn in $servicePrincipalName) {
 
+        # account can be disabled so skip if we see this account in disabled state
+        $isKrbtgt = $spn.SamAccountName -eq "krbtgt"
+
         $passwordDetailsSPN = [PSCustomObject]@{
             samAccountName                    = $spn.SamAccountName
             servicePrincipalName              = $spn.ServicePrincipalName
@@ -85,7 +88,7 @@ function Get-SPNAccountSettings {
             passwordNotRequired               = $spn.PasswordNotRequired
             cannotChangePassword              = $spn.CannotChangePassword
             passwordExpired                   = $spn.PasswordExpired
-            enabled                           = $spn.Enabled
+            enabled                           = if (-not $isKrbtgt) { $spn.Enabled } else { $null }
             lockedOut                         = $spn.LockedOut
             useDESKeyOnly                     = $spn.useDESKeyOnly
             allowReversiblePasswordEncryption = $spn.allowReversiblePasswordEncryption
@@ -93,8 +96,8 @@ function Get-SPNAccountSettings {
             trustedForDelegation              = $spn.trustedForDelegation
             trustedToAuthForDelegation        = $spn.TrustedToAuthForDelegation
             accountNotDelegated               = $spn.AccountNotDelegated
-            passwordAgeDays                   = if ($spn.PasswordLastSet) { 
-                (New-TimeSpan -Start $spn.PasswordLastSet -End (Get-Date)).Days 
+            passwordAgeDays                   = if ($spn.PasswordLastSet) {
+                (New-TimeSpan -Start $spn.PasswordLastSet -End (Get-Date)).Days
             }
             else { $null }
 
@@ -102,11 +105,12 @@ function Get-SPNAccountSettings {
         # Alle resultaten toevoegen aan array
         $pswSettings += $passwordDetailsSPN
     }
-    return $pswSettings 
+
+    return $pswSettings
 }
 
 # #3
 
 
-# Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
+Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
 # Get-EncryptionType -servicePrincipalName $(Get-ServiceAccounts)
