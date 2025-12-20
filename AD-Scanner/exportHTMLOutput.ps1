@@ -368,10 +368,11 @@ function Export-ToHTML {
             $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
 
             if ($isPasswordPolicy) {
-                # Password policy - each issue setting gets counted separately
+                # Password policy - count affected users, not number of settings
                 $issues = $data.Issues
-                $moduleIssueCount += $issues.Count
-                $totalIssues += $issues.Count
+                $userCount = $data.AppliedUserCount
+                $moduleIssueCount += $userCount
+                $totalIssues += $userCount
 
                 foreach ($issue in $issues) {
                     $settingName = $issue.Setting
@@ -554,11 +555,11 @@ function Export-ToHTML {
                 $html += "<span class='collapse-icon'>▼</span>`n"
                 $html += "<span class='check-title-text'>$checkName</span>`n"
 
-                # Badge met issue count en severity kleur
-                $issueCount = $issues.Count
-                $totalIssues += $issueCount
+                # Badge met user count (niet issue count) voor password policies
+                $userCount = $data.AppliedUserCount
+                $totalIssues += $userCount
                 $badgeClass = if ($highestRisk -eq "Critical") { "badge-danger" } elseif ($highestRisk -eq "High") { "badge-danger" } elseif ($highestRisk -eq "Medium") { "badge-warning" } else { "badge-warning" }
-                $html += "<span class='badge $badgeClass'>$issueCount issue(s) - $highestRisk Risk</span>`n"
+                $html += "<span class='badge $badgeClass'>$userCount user(s) affected - $highestRisk Risk</span>`n"
 
                 $html += "</div>`n" # close check-title-left
 
@@ -647,8 +648,25 @@ function Export-ToHTML {
                 if ($accounts -and $accounts.Count -gt 0) {
                     $count = ($accounts | Measure-Object).Count
                     $totalIssues += $count
-                    $badgeClass = if ($count -gt 10) { "badge-danger" } elseif ($count -gt 5) { "badge-warning" } else { "badge-warning" }
-                    $html += "<span class='badge $badgeClass'>$count found</span>`n"
+
+                    # Haal risk level op voor deze check
+                    $info = $checkInfo[$checkName]
+                    if ($info) {
+                        $riskLevel = $info.RiskLevel
+                        # Badge kleur gebaseerd op risk level
+                        $badgeClass = switch ($riskLevel) {
+                            "Critical" { "badge-danger" }
+                            "High" { "badge-danger" }
+                            "Medium" { "badge-warning" }
+                            "Low" { "badge-success" }
+                            default { "badge-warning" }
+                        }
+                        $html += "<span class='badge $badgeClass'>$count found - $riskLevel Risk</span>`n"
+                    } else {
+                        # Fallback als geen info beschikbaar
+                        $badgeClass = if ($count -gt 10) { "badge-danger" } elseif ($count -gt 5) { "badge-warning" } else { "badge-warning" }
+                        $html += "<span class='badge $badgeClass'>$count found</span>`n"
+                    }
                 } else {
                     $html += "<span class='badge badge-success'>0 found</span>`n"
                 }
