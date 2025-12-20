@@ -54,11 +54,23 @@ if (($runAll -or $Modules -contains "1") -and (Test-Path "$PSScriptRoot\Modules\
 
     # Account checks gaan naar Module 1
     $allModuleResults["Module 1 - Dangerous Accounts"] = $module1Results.AccountChecks
-
+    $module1Results | Format-List *
+    # $allModuleResults
     # Password Policies krijgen hun eigen sectie
-    $allModuleResults["Password Policies"] = $module1Results.PasswordPolicies
+    $allModuleResults["Module 1 -Password Policies"] = $module1Results.PasswordPolicies
 }
 
+# Module 2: Kerberos SPN Audit
+if (($runAll -or $Modules -contains "2") -and (Test-Path "$PSScriptRoot\Modules\module2Kerberos\module2.ps1")) {
+    Write-Host "`nRunning Module 2: Kerberos SPN Audit..." -ForegroundColor Yellow
+    $module2Results = & "$PSScriptRoot\Modules\module2Kerberos\module2.ps1"
+    $module2Results.AccountChecks
+    $allModuleResults["Module 2 - Kerberos SPN Audit"] = $module2Results.AccountChecks
+
+    $allModuleResults | Format-List *
+}
+
+# $allModuleResults
 Write-Host "`n==================================================" -ForegroundColor Cyan
 Write-Host "   All modules completed - Generating report..." -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan

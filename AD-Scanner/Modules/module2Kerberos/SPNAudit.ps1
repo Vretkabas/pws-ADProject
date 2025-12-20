@@ -109,8 +109,5 @@ function Get-SPNAccountSettings {
     return $pswSettings
 }
 
-# #3
-
-
-Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
+# Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
 # Get-EncryptionType -servicePrincipalName $(Get-ServiceAccounts)

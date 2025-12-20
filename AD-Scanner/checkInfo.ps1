@@ -283,6 +283,242 @@ $checkInfo = @{
 "@
         References = ""
     }
+
+    # ============================================
+    # Module 2: Kerberos SPN Audit (Made with claude AI)
+    # ============================================
+
+    "Weak Encryption (DES or RC4 without AES)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Service accounts using weak Kerberos encryption (DES or RC4 without AES) are vulnerable to offline password cracking attacks. Attackers can capture Kerberos tickets and crack them to recover service account passwords."
+        Remediation = @"
+1. Enable AES256 or AES128 encryption for all service accounts
+2. Use 'Set-ADUser' to configure msDS-SupportedEncryptionTypes attribute
+3. Set value to 24 (AES128 + AES256) or 16 (AES256 only)
+4. Test service functionality after encryption change
+5. Disable DES and RC4-only configurations
+"@
+        References = ""
+    }
+
+    "DES Encryption (Critical)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: DES (Data Encryption Standard) is a deprecated and extremely weak encryption algorithm. Service accounts using DES can be cracked in seconds by modern tools and should be upgraded immediately."
+        Remediation = @"
+1. IMMEDIATELY disable DES encryption for all affected accounts
+2. Enable AES256 encryption (msDS-SupportedEncryptionTypes = 16 or 24)
+3. Force password reset for affected service accounts
+4. Test all services using these accounts
+5. Investigate if DES was required by legacy systems and upgrade those systems
+"@
+        References = ""
+    }
+
+    "RC4 Only (No AES)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Service accounts using only RC4 encryption without AES support are vulnerable to Kerberoasting attacks. RC4 is considered weak and can be cracked offline by attackers."
+        Remediation = @"
+1. Enable AES256 and/or AES128 encryption alongside RC4 for backward compatibility
+2. Set msDS-SupportedEncryptionTypes to 28 (RC4 + AES128 + AES256)
+3. Plan migration to AES-only (value 24) after ensuring compatibility
+4. Update service account passwords to strong, random values
+5. Monitor for Kerberoasting attempts in security logs
+"@
+        References = ""
+    }
+
+    "AES Only (Best Practice)" = @{
+        RiskLevel = "Low"
+        RiskColor = "#28a745"
+        Description = "COMPLIANT: These service accounts use only AES encryption, which is the current best practice for Kerberos security. No action needed unless compatibility issues arise."
+        Remediation = @"
+No remediation required - this is the recommended configuration.
+Continue monitoring these accounts and maintain strong password policies.
+"@
+        References = ""
+    }
+
+    "AES with RC4 (Acceptable)" = @{
+        RiskLevel = "Low"
+        RiskColor = "#ffc107"
+        Description = "Service accounts support both AES and RC4 encryption. This is acceptable for backward compatibility but should eventually migrate to AES-only."
+        Remediation = @"
+1. Verify if RC4 is still needed for legacy application compatibility
+2. Plan migration to AES-only configuration
+3. Test applications to ensure they support AES
+4. Remove RC4 support when legacy dependencies are resolved
+5. Set msDS-SupportedEncryptionTypes to 24 (AES128 + AES256 only)
+"@
+        References = ""
+    }
+
+    "Password never expires on SPN accounts" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Service accounts with passwords set to never expire pose a long-term security risk. If compromised, these credentials remain valid indefinitely."
+        Remediation = @"
+1. Migrate to Group Managed Service Accounts (gMSA) which auto-rotate passwords
+2. If gMSA not possible, implement regular password rotation (90-365 days)
+3. Use strong, random passwords (25+ characters)
+4. Document business justification for any exceptions
+5. Monitor these accounts for suspicious activity
+"@
+        References = ""
+    }
+
+    "Password not required on SPN accounts" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Service accounts with 'Password Not Required' flag can have blank passwords, allowing trivial unauthorized access."
+        Remediation = @"
+1. IMMEDIATELY set strong passwords for these accounts
+2. Remove the 'Password Not Required' flag
+3. Investigate how this configuration occurred
+4. Audit for unauthorized access using these accounts
+5. Migrate to Managed Service Accounts if possible
+"@
+        References = ""
+    }
+
+    "Cannot change password on SPN accounts" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Service accounts configured to prevent password changes may indicate hardcoded credentials in applications or scripts, which is a security anti-pattern."
+        Remediation = @"
+1. Identify applications using these service accounts
+2. Update applications to support password rotation
+3. Remove 'Cannot Change Password' restriction
+4. Implement password rotation schedule
+5. Consider using Group Managed Service Accounts (gMSA)
+"@
+        References = ""
+    }
+
+    "Password expired on SPN accounts" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Service accounts with expired passwords indicate service failures or authentication issues. This may cause application outages or force use of alternative (possibly less secure) credentials."
+        Remediation = @"
+1. Reset passwords for affected service accounts immediately
+2. Update applications/services with new credentials
+3. Implement Group Managed Service Accounts (gMSA) to prevent future expirations
+4. Review password expiration policies for service accounts
+5. Set up monitoring alerts for upcoming expirations
+"@
+        References = ""
+    }
+
+    "Disabled SPN accounts" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Disabled service accounts with SPNs may indicate decommissioned services. These should be removed to maintain clean Active Directory hygiene."
+        Remediation = @"
+1. Verify the service account is no longer needed
+2. Remove SPN registrations before deleting account
+3. Delete the account if confirmed unnecessary
+4. Document decommissioning for audit trail
+5. Review regularly for cleanup opportunities
+"@
+        References = ""
+    }
+
+    "Locked out SPN accounts" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Locked service accounts indicate failed authentication attempts, which may be signs of attack, misconfiguration, or service issues causing authentication failures."
+        Remediation = @"
+1. Unlock the account immediately if legitimate
+2. Investigate lockout cause in security logs
+3. Check for Kerberoasting or brute-force attempts
+4. Verify service is using correct credentials
+5. Reset password if compromise is suspected
+"@
+        References = ""
+    }
+
+    "Allow reversible password encryption on SPN accounts" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Reversible encryption on service accounts stores passwords in easily decryptable format. This defeats password security entirely."
+        Remediation = @"
+1. IMMEDIATELY disable reversible encryption
+2. Force password reset for all affected accounts
+3. Investigate why this was enabled
+4. Audit for potential password exposure
+5. Never enable unless absolutely required by legacy protocols (very rare)
+"@
+        References = ""
+    }
+
+    "Does not require pre-authentication on SPN accounts" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Service accounts not requiring Kerberos pre-authentication (DONT_REQ_PREAUTH) are vulnerable to AS-REP Roasting attacks where attackers can obtain crackable password hashes without valid credentials."
+        Remediation = @"
+1. IMMEDIATELY enable Kerberos pre-authentication
+2. Verify no legitimate reason for this setting
+3. Reset passwords for affected accounts
+4. Monitor for AS-REP Roasting attempts
+5. Audit security logs for suspicious TGT requests
+"@
+        References = ""
+    }
+
+    "Trusted for delegation SPN accounts" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Unconstrained delegation allows service accounts to impersonate users to any service. If compromised, attackers can abuse this to escalate privileges across the domain."
+        Remediation = @"
+1. Review if unconstrained delegation is truly necessary
+2. Migrate to constrained delegation where possible
+3. Limit delegation to specific services only
+4. Use Resource-Based Constrained Delegation (RBCD) for better control
+5. Monitor these accounts closely for abuse
+"@
+        References = ""
+    }
+
+    "Trusted to authenticate for delegation SPN accounts" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Constrained delegation allows service accounts to impersonate users to specific services. While more secure than unconstrained, it still requires careful management and monitoring."
+        Remediation = @"
+1. Verify delegation is limited to necessary services only
+2. Regularly review delegation targets
+3. Consider Resource-Based Constrained Delegation
+4. Monitor for delegation abuse
+5. Document business justification for delegation
+"@
+        References = ""
+    }
+
+    "Account not delegated SPN accounts" = @{
+        RiskLevel = "Low"
+        RiskColor = "#28a745"
+        Description = "Service accounts marked 'Account is sensitive and cannot be delegated' are protected from delegation abuse. This is a security best practice for high-privilege accounts."
+        Remediation = @"
+This is a positive security finding. Continue applying this setting to sensitive accounts.
+Consider enabling for all service accounts that don't require delegation.
+"@
+        References = ""
+    }
+
+    "SPN accounts with password age >90 days" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Service account passwords older than 90 days increase risk of compromise through various attack vectors. Regular rotation limits exposure window."
+        Remediation = @"
+1. Implement Group Managed Service Accounts (gMSA) for automatic rotation
+2. If gMSA not possible, establish password rotation schedule
+3. Use strong, random passwords (25+ characters)
+4. Set maximum password age policy (90-365 days depending on risk)
+5. Document password changes and coordinate with service owners
+"@
+        References = ""
+    }
 }
 
 # Export de hashtable zodat andere scripts het kunnen gebruiken
