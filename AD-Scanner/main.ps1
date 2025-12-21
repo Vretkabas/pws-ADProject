@@ -67,7 +67,8 @@ if (($runAll -or $Modules -contains "2") -and (Test-Path "$PSScriptRoot\Modules\
     $module2Results.AccountChecks
     $allModuleResults["Module 2 - Kerberos SPN Audit"] = $module2Results.AccountChecks
 
-    $allModuleResults | Format-List *
+    # Password policy for SPN accounts
+    $allModuleResults["Module 2 - SPN Password Policies"] = $module2Results.PasswordPolicies
 }
 
 # $allModuleResults

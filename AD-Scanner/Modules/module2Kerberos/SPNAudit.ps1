@@ -109,5 +109,15 @@ function Get-SPNAccountSettings {
     return $pswSettings
 }
 
+
+# #3 FGPP for SPN accounts check
+# We will use functions from passwordSettings.ps1
+. "$PSScriptRoot\..\module1dangerousAccounts\passwordSettings.ps1"
+function Get-PasswordPoliciesSPN {
+    $passwordPoliciesSPN = Get-PasswordPolicyAnalysis -isSPNCK $true
+    return $passwordPoliciesSPN
+}
+
+
 # Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
 # Get-EncryptionType -servicePrincipalName $(Get-ServiceAccounts)

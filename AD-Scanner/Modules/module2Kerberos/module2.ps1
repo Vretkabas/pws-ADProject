@@ -27,7 +27,12 @@ $module2Results = @{
     "SPN accounts with password age >90 days" = $accountSettings | Where-Object { $_.passwordAgeDays -gt 90  } | Select-Object SamAccountName
 }
 
+
+# get all FGPP issues for SPN accounts (or default policy if no FGPP)
+$fgppIssuesSPN = Get-PasswordPoliciesSPN
+
 #return results as hashtable
 return @{
     AccountChecks    = $module2Results
+    PasswordPolicies = $fgppIssuesSPN
 }

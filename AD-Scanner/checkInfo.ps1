@@ -187,16 +187,45 @@ $checkInfo = @{
         References = ""
     }
 
+    "Minimum Password Length (SPN)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Service accounts (SPN accounts) require stronger password policies than regular user accounts. Passwords below 24 characters are vulnerable to Kerberoasting attacks where attackers can crack service account passwords offline. Service accounts are high-value targets because they often have elevated privileges."
+        Remediation = @"
+1. Set minimum password length to at least 24 characters for service accounts (32+ recommended)
+2. Update the Fine-Grained Password Policy for service accounts
+3. Force password reset for all affected service accounts with strong, random passwords
+4. Consider implementing Group Managed Service Accounts (gMSA) which use 120+ character auto-generated passwords
+5. Use password generators to create strong, random passwords for manual service accounts
+"@
+        References = ""
+    }
+
     "Maximum Password Age" = @{
         RiskLevel = "Medium"
         RiskColor = "#ffc107"
-        Description = "Passwords that never expire (0 days) or expire too infrequently (>365 days) increase the risk window if credentials are compromised. However, overly frequent changes can lead to weaker password patterns."
+        Description = "Passwords that never expire (0 days) or expire too infrequently (>90 days) increase the risk window if credentials are compromised. However, overly frequent changes can lead to weaker password patterns."
         Remediation = @"
-1. Set maximum password age between 60-365 days (90 days is common)
+1. Set maximum password age between 60-90 days (90 days is recommended)
 2. Balance security with usability (too frequent changes = weak patterns)
 3. Consider implementing MFA as alternative to frequent password changes
 4. For service accounts, use Managed Service Accounts instead
 5. Update Fine-Grained Password Policy or Default Domain Policy
+"@
+        References = ""
+    }
+
+    "Maximum Password Age (SPN)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Service accounts (SPN accounts) with passwords that expire too infrequently (>120 days) pose a higher security risk than regular user accounts. If a service account password is compromised through Kerberoasting or other attacks, the longer validity period provides attackers with an extended window for lateral movement and privilege escalation."
+        Remediation = @"
+1. Set maximum password age to 120 days for service accounts
+2. Implement Group Managed Service Accounts (gMSA) which automatically rotate passwords every 30 days
+3. For manual service accounts, establish a documented password rotation schedule
+4. Use strong, random passwords (24+ characters) to compensate for longer rotation periods
+5. Update Fine-Grained Password Policy for service accounts
+6. Monitor service accounts for suspicious activity
 "@
         References = ""
     }
