@@ -1,0 +1,48 @@
+Delegation Audit Report
+├── Executive Summary
+│   ├── Risk counts (Critical/High/Medium/Low)
+│   └── Quick stats
+│
+├── 1. Unconstrained Delegation
+│   ├── 🖥️ Computers (non-DC)
+│   │   └── [table met findings]
+│   ├── 👤 Users
+│   │   └── [table met findings]
+│   ├── ⚙️ Service Accounts (gMSA)
+│        └── [table met findings]  
+│
+├── 2. Constrained Delegation
+│   ├── 🖥️ Computers
+│   │   ├── With Protocol Transition
+│   │   └── Kerberos Only
+│   ├── 👤 Users
+│   │   ├── With Protocol Transition
+│   │   └── Kerberos Only
+│   └── ⚙️ Service Accounts
+│
+├── 3. RBCD Configurations
+│   ├── 🖥️ Computer Targets
+│   └── 👤 User Targets (unusual!)
+│
+├── 4. Sensitive Accounts Not Protected
+│   └── [grouped by privileged group]
+│
+├── 5. Admins Not in Protected Users
+│   └── [grouped by privileged group]
+│
+├── 6. Dangerous SPN Delegations
+│   ├── 🔴 CRITICAL (ldap, krbtgt)
+│   ├── 🟠 HIGH (cifs, host, wsman, mssql)
+│   └── 🟡 MEDIUM (http, https)
+│
+├── 7. Delegation to Domain Controllers
+│   └── [all findings - always critical]
+│
+├── 8. Pre-Windows 2000 Compatible Access
+│   ├── 🔴 Dangerous Members
+│   └── ℹ️ Other Members
+│
+└── 9. Service Account Delegation
+    └── [gMSA findings]
+
+
