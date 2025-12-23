@@ -361,70 +361,114 @@ function Export-ToHTML {
 
         foreach ($checkName in $moduleData.Keys) {
             $data = $moduleData[$checkName]
-            $moduleCheckCount++
-            $totalChecks++
 
-            # Check if password policy or regular check
-            $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
+            # Check for Module 3 nested structure (hashtable containing hashtables)
+            $isModule3Nested = ($moduleName -match "Module 3" -and $data -is [hashtable])
 
-            if ($isPasswordPolicy) {
-                # Password policy - count affected users, not number of settings
-                $issues = $data.Issues
-                $userCount = $data.AppliedUserCount
-                $moduleIssueCount += $userCount
-                $totalIssues += $userCount
+            if ($isModule3Nested) {
+                # Module 3: Nested structure - loop through sub-categories
+                foreach ($subCheckName in $data.Keys) {
+                    $subData = $data[$subCheckName]
+                    $moduleCheckCount++
+                    $totalChecks++
 
-                foreach ($issue in $issues) {
-                    $settingName = $issue.Setting
-                    $info = $checkInfo[$settingName]
-                    if ($info) {
-                        $risk = $info.RiskLevel
-                        # Update highest risk level for the module
-                        if ($risk -eq "Critical" -and $highestModuleRisk -ne "Critical") {
-                            $highestModuleRisk = "Critical"
+                    # Count accounts in this sub-check
+                    if ($subData -and $subData.Count -gt 0) {
+                        $count = ($subData | Measure-Object).Count
+                        $moduleIssueCount += $count
+                        $totalIssues += $count
+
+                        # Get risk level from checkInfo for this sub-check
+                        $info = $checkInfo[$subCheckName]
+                        if ($info) {
+                            $risk = $info.RiskLevel
+                            # Update highest risk level for the module
+                            if ($risk -eq "Critical" -and $highestModuleRisk -ne "Critical") {
+                                $highestModuleRisk = "Critical"
+                            }
+                            elseif ($risk -eq "High" -and $highestModuleRisk -notin @("Critical")) {
+                                $highestModuleRisk = "High"
+                            }
+                            elseif ($risk -eq "Medium" -and $highestModuleRisk -notin @("Critical", "High")) {
+                                $highestModuleRisk = "Medium"
+                            }
+
+                            # All accounts in this check have the same severity
+                            if ($risk -eq "Critical") { $criticalCount += $count }
+                            elseif ($risk -eq "High") { $highCount += $count }
+                            elseif ($risk -eq "Medium") { $mediumCount += $count }
+                            elseif ($risk -eq "Low") { $lowCount += $count }
                         }
-                        elseif ($risk -eq "High" -and $highestModuleRisk -notin @("Critical")) {
-                            $highestModuleRisk = "High"
-                        }
-                        elseif ($risk -eq "Medium" -and $highestModuleRisk -notin @("Critical", "High")) {
-                            $highestModuleRisk = "Medium"
-                        }
-
-                        # Count each issue by severity
-                        if ($risk -eq "Critical") { $criticalCount++ }
-                        elseif ($risk -eq "High") { $highCount++ }
-                        elseif ($risk -eq "Medium") { $mediumCount++ }
-                        elseif ($risk -eq "Low") { $lowCount++ }
                     }
                 }
             }
             else {
-                # Regular account check - each found account is an issue with same severity
-                if ($data -and $data.Count -gt 0) {
-                    $count = ($data | Measure-Object).Count
-                    $moduleIssueCount += $count
-                    $totalIssues += $count
+                # Regular modules (Module 1 & 2)
+                $moduleCheckCount++
+                $totalChecks++
 
-                    # Get risk level from checkInfo for this check type
-                    $info = $checkInfo[$checkName]
-                    if ($info) {
-                        $risk = $info.RiskLevel
-                        # Update highest risk level for the module
-                        if ($risk -eq "Critical" -and $highestModuleRisk -ne "Critical") {
-                            $highestModuleRisk = "Critical"
-                        }
-                        elseif ($risk -eq "High" -and $highestModuleRisk -notin @("Critical")) {
-                            $highestModuleRisk = "High"
-                        }
-                        elseif ($risk -eq "Medium" -and $highestModuleRisk -notin @("Critical", "High")) {
-                            $highestModuleRisk = "Medium"
-                        }
+                # Check if password policy or regular check
+                $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
 
-                        # All accounts in this check have the same severity
-                        if ($risk -eq "Critical") { $criticalCount += $count }
-                        elseif ($risk -eq "High") { $highCount += $count }
-                        elseif ($risk -eq "Medium") { $mediumCount += $count }
-                        elseif ($risk -eq "Low") { $lowCount += $count }
+                if ($isPasswordPolicy) {
+                    # Password policy - count affected users, not number of settings
+                    $issues = $data.Issues
+                    $userCount = $data.AppliedUserCount
+                    $moduleIssueCount += $userCount
+                    $totalIssues += $userCount
+
+                    foreach ($issue in $issues) {
+                        $settingName = $issue.Setting
+                        $info = $checkInfo[$settingName]
+                        if ($info) {
+                            $risk = $info.RiskLevel
+                            # Update highest risk level for the module
+                            if ($risk -eq "Critical" -and $highestModuleRisk -ne "Critical") {
+                                $highestModuleRisk = "Critical"
+                            }
+                            elseif ($risk -eq "High" -and $highestModuleRisk -notin @("Critical")) {
+                                $highestModuleRisk = "High"
+                            }
+                            elseif ($risk -eq "Medium" -and $highestModuleRisk -notin @("Critical", "High")) {
+                                $highestModuleRisk = "Medium"
+                            }
+
+                            # Count each issue by severity
+                            if ($risk -eq "Critical") { $criticalCount++ }
+                            elseif ($risk -eq "High") { $highCount++ }
+                            elseif ($risk -eq "Medium") { $mediumCount++ }
+                            elseif ($risk -eq "Low") { $lowCount++ }
+                        }
+                    }
+                }
+                else {
+                    # Regular account check - each found account is an issue with same severity
+                    if ($data -and $data.Count -gt 0) {
+                        $count = ($data | Measure-Object).Count
+                        $moduleIssueCount += $count
+                        $totalIssues += $count
+
+                        # Get risk level from checkInfo for this check type
+                        $info = $checkInfo[$checkName]
+                        if ($info) {
+                            $risk = $info.RiskLevel
+                            # Update highest risk level for the module
+                            if ($risk -eq "Critical" -and $highestModuleRisk -ne "Critical") {
+                                $highestModuleRisk = "Critical"
+                            }
+                            elseif ($risk -eq "High" -and $highestModuleRisk -notin @("Critical")) {
+                                $highestModuleRisk = "High"
+                            }
+                            elseif ($risk -eq "Medium" -and $highestModuleRisk -notin @("Critical", "High")) {
+                                $highestModuleRisk = "Medium"
+                            }
+
+                            # All accounts in this check have the same severity
+                            if ($risk -eq "Critical") { $criticalCount += $count }
+                            elseif ($risk -eq "High") { $highCount += $count }
+                            elseif ($risk -eq "Medium") { $mediumCount += $count }
+                            elseif ($risk -eq "Low") { $lowCount += $count }
+                        }
                     }
                 }
             }
@@ -447,7 +491,7 @@ function Export-ToHTML {
         $stats = $moduleStats[$moduleName]
         $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
         $riskClass = $stats.HighestRisk.ToLower()
-        $icon = if ($moduleName -match "Password") { "🔑" } else { "⚠️" }
+        $icon = if ($moduleName -match "Password") { "🔑" } elseif ($moduleName -match "Module 3") { "🔐" } else { "⚠️" }
 
         $dashboardCards += @"
         <div class="dashboard-card $riskClass" onclick="showView('$moduleId')">
@@ -506,18 +550,155 @@ function Export-ToHTML {
         $html += "<div class='module'>`n"
         $html += "<h2 class='module-title'>$moduleName</h2>`n"
 
-        # Loop door alle checks binnen de module
-        $checkIndex = 0
-        foreach ($checkName in $moduleData.Keys) {
-            $data = $moduleData[$checkName]
-            $checkId = "check-$($moduleName -replace '[^a-zA-Z0-9]', '')-$checkIndex"
-            $modalId = "modal-$checkId"
-            $checkIndex++
+        # Check if this is Module 3 with nested structure
+        $isModule3 = ($moduleName -match "Module 3")
 
-            # Check of dit een FGPP policy object is of gewone account array
-            $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
+        if ($isModule3) {
+            # === MODULE 3: 3-Laag structuur ===
+            # Laag 1: Module 3 kaart (al op dashboard)
+            # Laag 2: 9 controle types (sub-kaarten) - we tonen deze nu
+            # Laag 3: Issues per object type binnen elke controle
 
-            if ($isPasswordPolicy) {
+            foreach ($categoryName in $moduleData.Keys) {
+                $categoryData = $moduleData[$categoryName]
+                $categoryId = "$moduleId-" + ($categoryName -replace '[^a-zA-Z0-9]', '')
+
+                # Render sub-card voor deze categorie (bijv. "Unconstrained Delegation")
+                $html += "<div class='check' style='margin-bottom: 30px; background: #ffffff; border: 2px solid #667eea; padding: 25px;'>`n"
+                $html += "<h3 style='color: #667eea; margin-bottom: 20px; font-size: 1.5em;'>$categoryName</h3>`n"
+
+                # Loop door alle issues binnen deze categorie
+                foreach ($issueName in $categoryData.Keys) {
+                    $issueData = $categoryData[$issueName]
+                    $issueId = "$categoryId-" + ($issueName -replace '[^a-zA-Z0-9]', '')
+                    $modalId = "modal-$issueId"
+
+                    # Render issue (bijv. "Users (CRITICAL)")
+                    $html += "<div class='check' style='margin: 15px 0; background: #f9f9f9;'>`n"
+                    $html += "<div class='check-header' onclick='toggleCheck(""$issueId"")'>`n"
+                    $html += "<div class='check-title-left'>`n"
+                    $html += "<span class='collapse-icon'>▼</span>`n"
+                    $html += "<span class='check-title-text'>$issueName</span>`n"
+
+                    # Check if issueData exists and has items (handle both single object and arrays)
+                    $hasData = $false
+                    $count = 0
+                    if ($issueData) {
+                        if ($issueData -is [Array]) {
+                            $count = $issueData.Count
+                            $hasData = $count -gt 0
+                        } else {
+                            # Single object
+                            $count = 1
+                            $hasData = $true
+                        }
+                    }
+
+                    if ($hasData) {
+                        $info = $checkInfo[$issueName]
+                        $badgeClass = if ($info -and $info.RiskLevel -eq "Critical") { "badge-danger" } elseif ($info -and $info.RiskLevel -eq "High") { "badge-danger" } elseif ($info -and $info.RiskLevel -eq "Medium") { "badge-warning" } else { "badge-warning" }
+                        $html += "<span class='badge $badgeClass'>$count account(s)</span>`n"
+                    } else {
+                        $html += "<span class='badge badge-success'>No issues found</span>`n"
+                    }
+
+                    $html += "</div>`n" # close check-title-left
+
+                    # More Info button
+                    if ($checkInfo[$issueName]) {
+                        $html += "<button class='btn-info' onclick='event.stopPropagation(); showModal(""$modalId"")'>More Info</button>`n"
+                    }
+
+                    $html += "</div>`n" # close check-header
+
+                    # Collapsible content: Accounts tabel
+                    $html += "<div id='$issueId' class='check-content'>`n"
+
+                    if ($hasData) {
+                        # Ensure issueData is always treated as an array
+                        $dataArray = @()
+                        if ($issueData -is [Array]) {
+                            $dataArray = $issueData
+                        } else {
+                            $dataArray = @($issueData)
+                        }
+
+                        # Get first object to determine properties
+                        $firstItem = $dataArray[0]
+                        $properties = $firstItem.PSObject.Properties.Name
+
+                        $html += "<table>`n<thead><tr>`n"
+                        foreach ($prop in $properties) {
+                            $html += "<th>$prop</th>`n"
+                        }
+                        $html += "</tr></thead>`n<tbody>`n"
+
+                        foreach ($item in $dataArray) {
+                            $html += "<tr>`n"
+                            foreach ($prop in $properties) {
+                                $value = $item.$prop
+                                if ($null -eq $value) { $value = "" }
+                                $html += "<td>$value</td>`n"
+                            }
+                            $html += "</tr>`n"
+                        }
+                        $html += "</tbody></table>`n"
+                    } else {
+                        $html += "<p class='no-data'>No accounts found for this issue.</p>`n"
+                    }
+
+                    $html += "</div>`n" # close check-content
+
+                    # Modal voor More Info
+                    if ($checkInfo[$issueName]) {
+                        $info = $checkInfo[$issueName]
+                        $riskLevel = $info.RiskLevel
+                        $riskColor = $info.RiskColor
+                        $description = $info.Description
+                        $remediation = $info.Remediation -replace "`n", "<br>"
+                        $references = $info.References
+
+                        $html += "<div id='$modalId' class='modal' onclick='closeModal(""$modalId"")'>`n"
+                        $html += "    <div class='modal-content' onclick='event.stopPropagation()'>`n"
+                        $html += "        <div class='modal-header'>`n"
+                        $html += "            <h2 class='modal-title'>$issueName</h2>`n"
+                        $html += "            <button class='close-modal' onclick='event.stopPropagation(); closeModal(""$modalId"")'>&times;</button>`n"
+                        $html += "        </div>`n"
+                        $html += "        <div class='modal-body'>`n"
+                        $html += "            <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
+                        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+                        $html += "            <p><strong>Description:</strong><br>$description</p>`n"
+                        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+                        $html += "            <p><strong>Remediation:</strong><br>$remediation</p>`n"
+                        if ($references) {
+                            $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+                            $html += "            <p><strong>References:</strong><br><a href='$references' target='_blank'>$references</a></p>`n"
+                        }
+                        $html += "        </div>`n"
+                        $html += "    </div>`n"
+                        $html += "</div>`n"
+                    }
+
+                    $html += "</div>`n" # close issue check
+                }
+
+                $html += "</div>`n" # close category card
+            }
+        }
+        else {
+            # === REGULAR MODULES (Module 1 & 2) ===
+            # Loop door alle checks binnen de module
+            $checkIndex = 0
+            foreach ($checkName in $moduleData.Keys) {
+                $data = $moduleData[$checkName]
+                $checkId = "check-$($moduleName -replace '[^a-zA-Z0-9]', '')-$checkIndex"
+                $modalId = "modal-$checkId"
+                $checkIndex++
+
+                # Check of dit een FGPP policy object is of gewone account array
+                $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
+
+                if ($isPasswordPolicy) {
                 # === FGPP / Password Policy rendering ===
                 $policyData = $data
                 $issues = $policyData.Issues
@@ -749,9 +930,10 @@ function Export-ToHTML {
                     $html += "</div>`n"
                 }
 
-                $html += "</div>`n" # close check
+                    $html += "</div>`n" # close check
+                }
             }
-        }
+        } # end else (regular modules)
 
         $html += "</div>`n" # close module
         $html += "</div>`n" # close view-section

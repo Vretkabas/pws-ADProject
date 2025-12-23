@@ -78,10 +78,10 @@ function Get-ConstrainedDelegation {
     # Users
     Get-ADUser -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
         msDS-AllowedToDelegateTo,
-        TrustedToAuthForDelegation,
-        ServicePrincipalName,
-        Enabled,
-        Description |
+    TrustedToAuthForDelegation,
+    ServicePrincipalName,
+    Enabled,
+    Description |
     ForEach-Object {
         $results += [PSCustomObject]@{
             Name                = $_.Name
@@ -100,10 +100,10 @@ function Get-ConstrainedDelegation {
     # Computers
     Get-ADComputer -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
         msDS-AllowedToDelegateTo,
-        TrustedToAuthForDelegation,
-        ServicePrincipalName,
-        Enabled,
-        Description |
+    TrustedToAuthForDelegation,
+    ServicePrincipalName,
+    Enabled,
+    Description |
     ForEach-Object {
         $results += [PSCustomObject]@{
             Name                = $_.Name
@@ -123,10 +123,10 @@ function Get-ConstrainedDelegation {
     try {
         Get-ADServiceAccount -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
             msDS-AllowedToDelegateTo,
-            TrustedToAuthForDelegation,
-            ServicePrincipalName,
-            Enabled,
-            Description |
+        TrustedToAuthForDelegation,
+        ServicePrincipalName,
+        Enabled,
+        Description |
         ForEach-Object {
             $results += [PSCustomObject]@{
                 Name                = $_.Name
@@ -393,9 +393,9 @@ function Get-DangerousSPNDelegation {
     # Users
     Get-ADUser -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
         msDS-AllowedToDelegateTo,
-        Name,
-        SamAccountName,
-        Enabled |
+    Name,
+    SamAccountName,
+    Enabled |
     ForEach-Object {
         $allowedTo = $_.'msDS-AllowedToDelegateTo'
 
@@ -421,9 +421,9 @@ function Get-DangerousSPNDelegation {
     # Computers
     Get-ADComputer -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
         msDS-AllowedToDelegateTo,
-        Name,
-        SamAccountName,
-        Enabled |
+    Name,
+    SamAccountName,
+    Enabled |
     ForEach-Object {
         $allowedTo = $_.'msDS-AllowedToDelegateTo'
 
@@ -450,9 +450,9 @@ function Get-DangerousSPNDelegation {
     try {
         Get-ADServiceAccount -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
             msDS-AllowedToDelegateTo,
-            Name,
-            SamAccountName,
-            Enabled |
+        Name,
+        SamAccountName,
+        Enabled |
         ForEach-Object {
             $allowedTo = $_.'msDS-AllowedToDelegateTo'
 
@@ -493,9 +493,9 @@ function Get-DelegationToDomainControllers {
     # Users
     Get-ADUser -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
         msDS-AllowedToDelegateTo,
-        Name,
-        SamAccountName,
-        Enabled |
+    Name,
+    SamAccountName,
+    Enabled |
     ForEach-Object {
         $allowedTo = $_.'msDS-AllowedToDelegateTo'
 
@@ -526,9 +526,9 @@ function Get-DelegationToDomainControllers {
     # Computers
     Get-ADComputer -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
         msDS-AllowedToDelegateTo,
-        Name,
-        SamAccountName,
-        Enabled |
+    Name,
+    SamAccountName,
+    Enabled |
     ForEach-Object {
         $allowedTo = $_.'msDS-AllowedToDelegateTo'
 
@@ -560,9 +560,9 @@ function Get-DelegationToDomainControllers {
     try {
         Get-ADServiceAccount -Filter { msDS-AllowedToDelegateTo -like "*" } -Properties `
             msDS-AllowedToDelegateTo,
-            Name,
-            SamAccountName,
-            Enabled |
+        Name,
+        SamAccountName,
+        Enabled |
         ForEach-Object {
             $allowedTo = $_.'msDS-AllowedToDelegateTo'
 
@@ -781,51 +781,51 @@ function Invoke-DelegationAudit {
 
     $results = @{
         # Section 1: Unconstrained Delegation
-        UnconstrainedDelegation = @{
-            All             = $allUnconstrainedDelegation
-            Users           = $unconstrainedDelegationU
-            Computers       = $unconstrainedDelegationC
-            ServiceAccounts = $unconstrainedDelegationS
+        UnconstrainedDelegation       = @{
+            All               = $allUnconstrainedDelegation
+            Users             = $unconstrainedDelegationU
+            Computers         = $unconstrainedDelegationC
+            ServiceAccounts   = $unconstrainedDelegationS
             DomainControllers = $unconstrainedDelegationDC
         }
 
         # Section 2: Constrained Delegation
-        ConstrainedDelegation = @{
-            All                     = $allConstrainedDelegation
-            Users_KerberosOnly      = $constrainedDelegationU_KerbOnly
-            Users_WithProtocolTransition = $constrainedDelegationU_WithPT
-            Computers_KerberosOnly  = $constrainedDelegationC_KerbOnly
-            Computers_WithProtocolTransition = $constrainedDelegationC_WithPT
-            ServiceAccounts_KerberosOnly = $constrainedDelegationS_KerbOnly
+        ConstrainedDelegation         = @{
+            All                                    = $allConstrainedDelegation
+            Users_KerberosOnly                     = $constrainedDelegationU_KerbOnly
+            Users_WithProtocolTransition           = $constrainedDelegationU_WithPT
+            Computers_KerberosOnly                 = $constrainedDelegationC_KerbOnly
+            Computers_WithProtocolTransition       = $constrainedDelegationC_WithPT
+            ServiceAccounts_KerberosOnly           = $constrainedDelegationS_KerbOnly
             ServiceAccounts_WithProtocolTransition = $constrainedDelegationS_WithPT
         }
 
         # Section 3: RBCD
-        RBCD = @{
-            All              = $allRBCD
-            TargetComputers  = $rbcdTargetComputers
-            TargetUsers      = $rbcdTargetUsers
-            TargetGMSA       = $rbcdTargetGMSA
+        RBCD                          = @{
+            All             = $allRBCD
+            TargetComputers = $rbcdTargetComputers
+            TargetUsers     = $rbcdTargetUsers
+            TargetGMSA      = $rbcdTargetGMSA
         }
 
         # Section 4: Sensitive Accounts Not Protected
         SensitiveAccountsNotProtected = @{
-            All             = $allSensitiveNotProtected
-            Enabled         = $sensitiveNotProtected_Enabled
-            Disabled        = $sensitiveNotProtected_Disabled
-            ByGroup         = $sensitiveByGroup
+            All      = $allSensitiveNotProtected
+            Enabled  = $sensitiveNotProtected_Enabled
+            Disabled = $sensitiveNotProtected_Disabled
+            ByGroup  = $sensitiveByGroup
         }
 
         # Section 5: Admins Not in Protected Users
-        AdminsNotInProtectedUsers = @{
-            All             = $allAdminsNotProtected
-            Enabled         = $adminsNotProtected_Enabled
-            Disabled        = $adminsNotProtected_Disabled
-            ByGroup         = $adminsNotProtectedByGroup
+        AdminsNotInProtectedUsers     = @{
+            All      = $allAdminsNotProtected
+            Enabled  = $adminsNotProtected_Enabled
+            Disabled = $adminsNotProtected_Disabled
+            ByGroup  = $adminsNotProtectedByGroup
         }
 
         # Section 6: Dangerous SPN Delegation
-        DangerousSPNDelegation = @{
+        DangerousSPNDelegation        = @{
             All             = $allDangerousSPN
             Critical        = $dangerousSPN_Critical
             High            = $dangerousSPN_High
@@ -836,28 +836,28 @@ function Invoke-DelegationAudit {
         }
 
         # Section 7: Delegation to Domain Controllers
-        DelegationToDCs = @{
-            All             = $allDelegationToDCs
-            LDAP            = $delegationToDC_LDAP
-            CIFS            = $delegationToDC_CIFS
-            HOST            = $delegationToDC_HOST
-            Other           = $delegationToDC_Other
+        DelegationToDCs               = @{
+            All   = $allDelegationToDCs
+            LDAP  = $delegationToDC_LDAP
+            CIFS  = $delegationToDC_CIFS
+            HOST  = $delegationToDC_HOST
+            Other = $delegationToDC_Other
         }
 
         # Section 8: Pre-Windows 2000 Compatible Access
-        PreWindows2000 = @{
-            All             = $allPreWin2000
-            Dangerous       = $preWin2000_Dangerous
-            Other           = $preWin2000_Other
+        PreWindows2000                = @{
+            All       = $allPreWin2000
+            Dangerous = $preWin2000_Dangerous
+            Other     = $preWin2000_Other
         }
 
         # Section 9: Service Account Delegation
-        ServiceAccountDelegation = @{
-            All                 = $allServiceAccountDelegation
-            Unconstrained       = $serviceAcctDelegation_Unconstrained
-            ProtocolTransition  = $serviceAcctDelegation_ProtocolTransition
-            Constrained         = $serviceAcctDelegation_Constrained
-            RBCD                = $serviceAcctDelegation_RBCD
+        ServiceAccountDelegation      = @{
+            All                = $allServiceAccountDelegation
+            Unconstrained      = $serviceAcctDelegation_Unconstrained
+            ProtocolTransition = $serviceAcctDelegation_ProtocolTransition
+            Constrained        = $serviceAcctDelegation_Constrained
+            RBCD               = $serviceAcctDelegation_RBCD
         }
     }
 

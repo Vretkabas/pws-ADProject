@@ -71,7 +71,15 @@ if (($runAll -or $Modules -contains "2") -and (Test-Path "$PSScriptRoot\Modules\
     $allModuleResults["Module 2 - SPN Password Policies"] = $module2Results.PasswordPolicies
 }
 
+# Module 3: Delegation Abuse Scanner
+if (($runAll -or $Modules -contains "3") -and (Test-Path "$PSScriptRoot\Modules\module3DelegationAbuse\module3.ps1")) {
+    Write-Host "`nRunning Module 3: Delegation Abuse Scanner..." -ForegroundColor Yellow
+    $module3Results = & "$PSScriptRoot\Modules\module3DelegationAbuse\module3.ps1"
+    $allModuleResults["Module 3 - Delegation"] = $module3Results
+}
+
 # $allModuleResults
+
 Write-Host "`n==================================================" -ForegroundColor Cyan
 Write-Host "   All modules completed - Generating report..." -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan

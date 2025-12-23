@@ -2,6 +2,7 @@
 # Check Information Database
 # ============================================
 # hastable met alle informatie over de checks in module 1
+# made with claude AI
 
 $checkInfo = @{
     # Module 1: Dangerous Settings
@@ -545,6 +546,439 @@ Consider enabling for all service accounts that don't require delegation.
 3. Use strong, random passwords (25+ characters)
 4. Set maximum password age policy (90-365 days depending on risk)
 5. Document password changes and coordinate with service owners
+"@
+        References = ""
+    }
+
+    # ============================================
+    # Module 3: Delegation Abuse Scanner
+    # ============================================
+
+    # Section 1: Unconstrained Delegation
+    "Users (CRITICAL)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: User accounts with unconstrained delegation (TrustedForDelegation=True) can cache TGTs from any service and impersonate any user, including Domain Admins. This is extremely dangerous and almost never needed for user accounts."
+        Remediation = @"
+1. IMMEDIATELY remove unconstrained delegation from these user accounts
+2. Investigate why this was configured - this is highly unusual
+3. Audit security logs for potential abuse of these accounts
+4. If delegation is needed, use constrained delegation instead
+5. Reset passwords for affected accounts
+6. Monitor these accounts for suspicious activity
+"@
+        References = "https://adsecurity.org/?p=1667"
+    }
+
+    "Computers (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Computer accounts (non-DC) with unconstrained delegation can cache TGTs and impersonate users. If compromised, attackers can extract cached credentials and escalate privileges."
+        Remediation = @"
+1. Review each computer to verify if unconstrained delegation is truly necessary
+2. Migrate to constrained delegation where possible
+3. Limit delegation to specific services only (Resource-Based Constrained Delegation)
+4. Isolate these computers in a separate OU with strict access controls
+5. Enable enhanced monitoring and logging for these systems
+6. Consider using Protected Users group for high-privilege accounts
+"@
+        References = "https://adsecurity.org/?p=1667"
+    }
+
+    "Service Accounts (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Service accounts (gMSA) with unconstrained delegation pose significant risk. If the service is compromised, attackers can harvest TGTs and impersonate any user in the domain."
+        Remediation = @"
+1. Remove unconstrained delegation from gMSA accounts
+2. Use constrained delegation limited to specific SPNs
+3. Implement Resource-Based Constrained Delegation (RBCD) for better control
+4. Ensure service accounts use strong, random passwords (120+ chars for gMSA)
+5. Monitor these accounts for unusual authentication patterns
+"@
+        References = "https://adsecurity.org/?p=1667"
+    }
+
+    "Domain Controllers (Informational)" = @{
+        RiskLevel = "Low"
+        RiskColor = "#28a745"
+        Description = "Domain Controllers have unconstrained delegation by design - this is expected and necessary for DC functionality. No action needed unless you find non-DC servers in this category."
+        Remediation = @"
+This is expected configuration for Domain Controllers.
+Verify that only legitimate DCs appear in this list.
+If non-DC computers appear here, investigate immediately.
+"@
+        References = ""
+    }
+
+    # Section 2: Constrained Delegation
+    "Users - Kerberos Only (MEDIUM)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "User accounts with constrained delegation (Kerberos-only) can delegate to specific services but require a valid TGT. Review if users actually need delegation - this is uncommon and should be replaced with service accounts."
+        Remediation = @"
+1. Review why user accounts have delegation configured
+2. Verify the delegated services are necessary and minimal
+3. Consider using dedicated service accounts (gMSA) instead
+4. Remove delegation if not actively used
+5. Document business justification for any remaining user delegation
+"@
+        References = "https://docs.microsoft.com/en-us/windows-server/security/kerberos/kerberos-constrained-delegation-overview"
+    }
+
+    "Users - With Protocol Transition (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "User accounts with Protocol Transition (S4U2Self) can obtain service tickets on behalf of ANY user without their TGT. This is extremely powerful and rarely justified for user accounts."
+        Remediation = @"
+1. Review and remove Protocol Transition unless absolutely necessary
+2. This setting allows S4U2Self - the account can request tickets for any user
+3. Migrate to dedicated service accounts (gMSA) if delegation is needed
+4. Disable Protocol Transition if only Kerberos-to-Kerberos delegation is required
+5. Monitor these accounts for abuse
+"@
+        References = "https://docs.microsoft.com/en-us/windows-server/security/kerberos/kerberos-constrained-delegation-overview"
+    }
+
+    "Computers - Kerberos Only (LOW)" = @{
+        RiskLevel = "Low"
+        RiskColor = "#28a745"
+        Description = "Computer accounts with constrained delegation (Kerberos-only) to specific services. This is acceptable if properly scoped to necessary services only."
+        Remediation = @"
+1. Review delegated services to ensure they follow least privilege
+2. Verify delegation is still needed for the application
+3. Remove any unnecessary delegations
+4. Document the business purpose for each delegation
+5. Consider Resource-Based Constrained Delegation for better control
+"@
+        References = ""
+    }
+
+    "Computers - With Protocol Transition (MEDIUM)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Computer accounts with Protocol Transition can authenticate on behalf of users without their credentials. Common for web servers doing front-end authentication, but should be carefully reviewed."
+        Remediation = @"
+1. Verify Protocol Transition (S4U2Self) is actually needed
+2. Confirm the application requires user impersonation
+3. Limit delegated services to minimum necessary
+4. Disable Protocol Transition if only Kerberos-to-Kerberos is needed
+5. Monitor for delegation abuse
+"@
+        References = ""
+    }
+
+    "Service Accounts - Kerberos Only (LOW)" = @{
+        RiskLevel = "Low"
+        RiskColor = "#28a745"
+        Description = "Service accounts (gMSA) with constrained delegation (Kerberos-only) is the recommended approach when delegation is required. Verify scope is limited to necessary services."
+        Remediation = @"
+1. Review delegated services list for each account
+2. Apply principle of least privilege
+3. Remove any unnecessary delegations
+4. Document business justification
+5. Regularly audit delegation configurations
+"@
+        References = ""
+    }
+
+    "Service Accounts - With Protocol Transition (MEDIUM)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Service accounts with Protocol Transition can obtain tickets on behalf of users. While sometimes necessary for web applications, this should be carefully controlled."
+        Remediation = @"
+1. Verify Protocol Transition is required for the application
+2. Review and minimize delegated services
+3. Consider if Resource-Based Constrained Delegation is a better fit
+4. Disable Protocol Transition if not strictly needed
+5. Monitor for suspicious delegation usage
+"@
+        References = ""
+    }
+
+    # Section 3: Resource-Based Constrained Delegation (RBCD)
+    "Target Computers (MEDIUM-CRITICAL)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Computers configured as RBCD targets allow specified principals to delegate to them. Risk level depends on WHO is allowed to delegate (check AllowedToActOnBehalf). If 'Everyone' or broad groups, this is CRITICAL."
+        Remediation = @"
+1. Review 'AllowedToActOnBehalf' principals - ensure they are specific accounts
+2. Remove overly broad permissions (Everyone, Authenticated Users, Domain Computers)
+3. Limit RBCD to specific computer/service accounts
+4. Verify the business need for RBCD configuration
+5. Use RBCD instead of traditional delegation where possible for better control
+"@
+        References = "https://shenaniganslabs.io/2019/01/28/Wagging-the-Dog.html"
+    }
+
+    "Target Users (CRITICAL)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: User accounts as RBCD targets is extremely unusual and likely indicates misconfiguration or attack. RBCD should typically only be configured on computer/service accounts."
+        Remediation = @"
+1. IMMEDIATELY investigate why user accounts have RBCD configured
+2. Review who is allowed to delegate to these users
+3. Remove RBCD configuration from user accounts
+4. Audit for potential security incidents or privilege escalation
+5. This may indicate an active attack - engage security team
+"@
+        References = "https://shenaniganslabs.io/2019/01/28/Wagging-the-Dog.html"
+    }
+
+    "Target Service Accounts (MEDIUM)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Service accounts (gMSA) configured as RBCD targets. Review the principals allowed to delegate and ensure they are appropriate and limited."
+        Remediation = @"
+1. Verify the RBCD configuration is intentional
+2. Review AllowedToActOnBehalf principals for least privilege
+3. Ensure only necessary accounts can delegate
+4. Document the business justification
+5. Regularly audit RBCD configurations
+"@
+        References = ""
+    }
+
+    # Section 4: Sensitive Accounts Not Protected
+    "Enabled Accounts (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Privileged accounts (Domain Admins, Enterprise Admins, etc.) without the 'Account is sensitive and cannot be delegated' flag can be abused via delegation attacks. These accounts MUST be protected."
+        Remediation = @"
+1. IMMEDIATELY enable 'Account is sensitive and cannot be delegated' flag
+2. Set AccountNotDelegated attribute to True for all privileged accounts
+3. Use PowerShell: Set-ADUser <user> -AccountNotDelegated $true
+4. Verify setting is applied: Get-ADUser <user> -Properties AccountNotDelegated
+5. Add to Protected Users group for additional Kerberos hardening
+"@
+        References = "https://adsecurity.org/?p=3377"
+    }
+
+    "Disabled Accounts (MEDIUM)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Disabled privileged accounts without delegation protection. While lower risk due to being disabled, these should still be fixed to prevent accidental re-enabling without protection."
+        Remediation = @"
+1. Enable 'Account is sensitive and cannot be delegated' flag
+2. Set AccountNotDelegated attribute to True
+3. Review if these disabled accounts should be deleted
+4. Document retention requirements
+5. Move to disabled accounts OU for better management
+"@
+        References = ""
+    }
+
+    # Section 5: Admins Not in Protected Users
+    "Enabled Accounts (MEDIUM)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Domain/Enterprise/Schema Admins not in Protected Users group miss critical Kerberos protections: no NTLM, no delegation, no DES/RC4, 4-hour TGT lifetime. Recommended for all tier-0 accounts."
+        Remediation = @"
+1. Add privileged accounts to 'Protected Users' group
+2. Test application compatibility first (breaks NTLM and delegation)
+3. Use PowerShell: Add-ADGroupMember -Identity 'Protected Users' -Members <user>
+4. NOTE: Do NOT add service accounts to Protected Users (breaks services)
+5. Requires Windows Server 2012 R2 domain functional level minimum
+"@
+        References = "https://docs.microsoft.com/en-us/windows-server/security/credentials-protection-and-management/protected-users-security-group"
+    }
+
+    "Disabled Accounts (LOW)" = @{
+        RiskLevel = "Low"
+        RiskColor = "#28a745"
+        Description = "Disabled admin accounts not in Protected Users. Lower priority since accounts are disabled, but should still be added if accounts may be re-enabled."
+        Remediation = @"
+1. Add to Protected Users group if accounts may be re-enabled
+2. Consider deleting accounts that are permanently disabled
+3. Document retention requirements for compliance
+4. Move to disabled accounts OU
+"@
+        References = ""
+    }
+
+    # Section 6: Dangerous SPN Delegation
+    "CRITICAL Services (ldap, krbtgt)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Delegation to LDAP services enables DCSync attacks (replicating AD passwords). Delegation to krbtgt could enable Golden Ticket attacks. These should NEVER be delegated to."
+        Remediation = @"
+1. IMMEDIATELY remove delegation to ldap/* and krbtgt/* SPNs
+2. Investigate why this was configured - likely misconfiguration or attack
+3. Audit for DCSync attacks in security logs (Event ID 4662)
+4. Engage security team - this may indicate active compromise
+5. Reset passwords for affected service accounts
+"@
+        References = "https://adsecurity.org/?p=1729"
+    }
+
+    "HIGH Risk Services (cifs, host, wsman, mssql, gc)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Delegation to high-value services: CIFS (file shares), HOST (full server access), WSMAN (PowerShell remoting), MSSQL (databases), GC (Global Catalog). These enable significant lateral movement if abused."
+        Remediation = @"
+1. Review each delegation and verify business necessity
+2. Replace 'host/*' with specific service SPNs (more restrictive)
+3. Limit CIFS delegation to specific servers only
+4. Remove WSMAN delegation unless required for management tools
+5. Scope MSSQL delegation to specific database servers only
+6. Document all remaining delegations with justification
+"@
+        References = ""
+    }
+
+    "MEDIUM Risk Services (http, https)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Delegation to HTTP/HTTPS services. Common for web applications requiring backend authentication, but should be scoped to specific servers."
+        Remediation = @"
+1. Verify delegation is needed for web application functionality
+2. Replace http/* with specific server FQDNs (http/webapp.domain.com)
+3. Use Resource-Based Constrained Delegation for better control
+4. Remove wildcard delegations
+5. Document web applications requiring delegation
+"@
+        References = ""
+    }
+
+    # Section 7: Delegation to Domain Controllers
+    "LDAP Delegation (CRITICAL - DCSync Risk)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Delegation to LDAP on Domain Controllers enables DCSync attacks - attackers can replicate all domain passwords including KRBTGT. This is a path to full domain compromise."
+        Remediation = @"
+1. IMMEDIATELY remove all delegation to ldap/DC* SPNs
+2. Investigate how this was configured - likely attack or serious misconfiguration
+3. Audit for DCSync attempts (Event ID 4662 with GUID 1131f6ad-* or 1131f6aa-*)
+4. Reset KRBTGT password twice (with 10-hour wait between)
+5. Engage security team and consider incident response procedures
+"@
+        References = "https://adsecurity.org/?p=1729"
+    }
+
+    "CIFS Delegation (CRITICAL)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Delegation to CIFS on Domain Controllers provides access to SYSVOL, NETLOGON, and potentially NTDS.dit backups. This can lead to domain compromise."
+        Remediation = @"
+1. IMMEDIATELY remove delegation to cifs/DC* SPNs
+2. Verify no unauthorized access to SYSVOL or DC file shares
+3. Review DC file share access logs
+4. Investigate why this was configured
+5. Reset service account passwords
+"@
+        References = ""
+    }
+
+    "HOST Delegation (CRITICAL)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Delegation to HOST service on DCs grants broad access to multiple services. Combined with DC privileges, this can enable complete domain takeover."
+        Remediation = @"
+1. IMMEDIATELY remove delegation to host/DC* SPNs
+2. HOST SPN covers multiple services - very dangerous on DCs
+3. Audit DC security logs for suspicious activity
+4. Investigate configuration source
+5. Engage security team for incident assessment
+"@
+        References = ""
+    }
+
+    "Other Services (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Delegation to other services on Domain Controllers. Any delegation to DCs should be carefully reviewed - DCs should rarely be delegation targets."
+        Remediation = @"
+1. Review and remove delegation to any DC services
+2. Verify business justification for ANY delegation to DCs
+3. Consider alternative architectures that don't require DC delegation
+4. Document exceptions with security review
+5. Monitor DCs for suspicious delegation usage
+"@
+        References = ""
+    }
+
+    # Section 8: Pre-Windows 2000 Compatible Access
+    "Dangerous Members (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Pre-Windows 2000 Compatible Access group contains dangerous members (Anonymous, Everyone, or Authenticated Users). This allows anonymous or broad enumeration of Active Directory objects."
+        Remediation = @"
+1. IMMEDIATELY remove Anonymous Logon (S-1-5-7) from the group
+2. Remove Everyone (S-1-1-0) from the group
+3. Remove Authenticated Users (S-1-5-11) unless required for legacy systems
+4. Test legacy application compatibility after removal
+5. This group should typically be empty in modern environments
+"@
+        References = "https://adsecurity.org/?p=3658"
+    }
+
+    "Other Members (LOW)" = @{
+        RiskLevel = "Low"
+        RiskColor = "#28a745"
+        Description = "Pre-Windows 2000 Compatible Access group contains specific user/computer accounts. Review if these are still needed for legacy application compatibility."
+        Remediation = @"
+1. Review each member and verify it's required
+2. Contact application owners to confirm need
+3. Remove members that are no longer necessary
+4. Document any remaining members with business justification
+5. Work to eliminate need for this group (legacy compatibility)
+"@
+        References = ""
+    }
+
+    # Section 9: Service Account Delegation
+    "Unconstrained Delegation (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Service accounts (gMSA) with unconstrained delegation can cache TGTs and impersonate any user. This should be migrated to constrained delegation."
+        Remediation = @"
+1. Remove unconstrained delegation from gMSA accounts
+2. Migrate to constrained delegation with specific SPN targets
+3. Use Resource-Based Constrained Delegation for better control
+4. Test application functionality after migration
+5. Monitor for delegation abuse
+"@
+        References = ""
+    }
+
+    "Protocol Transition (MEDIUM)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Service accounts with Protocol Transition (S4U2Self) can obtain tickets on behalf of users. Review if this is necessary or if Kerberos-only delegation is sufficient."
+        Remediation = @"
+1. Verify Protocol Transition is required for application
+2. Disable if only Kerberos-to-Kerberos delegation is needed
+3. Review and minimize delegated service targets
+4. Document business justification
+5. Monitor for unusual delegation patterns
+"@
+        References = ""
+    }
+
+    "Constrained Only (LOW)" = @{
+        RiskLevel = "Low"
+        RiskColor = "#28a745"
+        Description = "Service accounts with constrained delegation (Kerberos-only) to specific services. This is the recommended approach when delegation is required."
+        Remediation = @"
+1. Verify delegated services follow least privilege principle
+2. Review and remove unnecessary delegation targets
+3. Document business purpose for each delegation
+4. Regularly audit delegation configurations
+5. This is the preferred delegation method - no immediate action unless over-permissioned
+"@
+        References = ""
+    }
+
+    "RBCD Target (MEDIUM)" = @{
+        RiskLevel = "Medium"
+        RiskColor = "#ffc107"
+        Description = "Service accounts configured as Resource-Based Constrained Delegation targets. Review which principals are allowed to delegate."
+        Remediation = @"
+1. Review AllowedToActOnBehalf principals
+2. Ensure only necessary accounts can delegate
+3. Remove overly broad permissions
+4. Verify business justification for RBCD
+5. Monitor for delegation abuse
 "@
         References = ""
     }
