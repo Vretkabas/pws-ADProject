@@ -982,6 +982,169 @@ If non-DC computers appear here, investigate immediately.
 "@
         References = ""
     }
+
+    # ============================================
+    # Module 4: Dangerous ACL Permissions Scanner
+    # ============================================
+
+    # Section 1: AdminSDHolder Permissions
+    "Dangerous Permissions (CRITICAL)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: AdminSDHolder is a special container that serves as a template for permissions on privileged accounts. Unauthorized users with dangerous ACL rights (GenericAll, WriteDacl, WriteOwner) on AdminSDHolder can persist backdoor access. The SDProp process propagates these permissions to all protected accounts every 60 minutes."
+        Remediation = @"
+1. IMMEDIATELY review all ACL entries on AdminSDHolder (CN=AdminSDHolder,CN=System,DC=domain,DC=com)
+2. Remove any unauthorized trustees with GenericAll, WriteDacl, WriteOwner, or WriteProperty rights
+3. Only Domain Admins and system accounts should have write access to AdminSDHolder
+4. Investigate how unauthorized permissions were added
+5. Audit all protected accounts for backdoor permissions that may have propagated
+6. Monitor AdminSDHolder ACL changes with Event ID 5136
+"@
+        References = "https://adsecurity.org/?p=1906"
+    }
+
+    # Section 2: Domain Object Permissions
+    "DCSync Rights (CRITICAL - Domain Takeover)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: DCSync rights (DS-Replication-Get-Changes and DS-Replication-Get-Changes-All) allow an attacker to replicate all password hashes from Active Directory, including KRBTGT. This enables complete domain takeover via Golden Ticket attacks or Pass-the-Hash."
+        Remediation = @"
+1. IMMEDIATELY remove DCSync rights from unauthorized accounts
+2. Only Domain Controllers and specific backup software should have these rights
+3. Investigate how these permissions were granted - likely compromise or misconfiguration
+4. Audit for DCSync attacks in security logs (Event ID 4662 with GUIDs 1131f6ad-* or 1131f6aa-*)
+5. Reset KRBTGT password twice (wait 10 hours between resets)
+6. Consider resetting passwords for all privileged accounts
+7. Engage security incident response team
+"@
+        References = "https://adsecurity.org/?p=1729"
+    }
+
+    "Other Dangerous Rights (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Domain object has dangerous ACL rights (GenericAll, GenericWrite, WriteDacl, WriteOwner) granted to unauthorized principals. These permissions can be escalated to DCSync or used to compromise the entire domain."
+        Remediation = @"
+1. Review and remove unauthorized ACL entries on the domain object
+2. Only Domain Admins, Enterprise Admins, and system accounts should have write access
+3. Verify no unexpected service accounts or users have permissions
+4. Audit for privilege escalation attempts
+5. Implement regular ACL audits on domain object
+6. Monitor with Event ID 5136 (directory service object modified)
+"@
+        References = ""
+    }
+
+    # Section 3: Privileged Group Permissions
+    "Domain Admins Group (CRITICAL)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Unauthorized principals with dangerous ACL rights on the Domain Admins group can add themselves or other accounts to the group, gaining full domain administrative access."
+        Remediation = @"
+1. IMMEDIATELY remove unauthorized ACL entries on Domain Admins group
+2. Only Domain Admins and SYSTEM should have write access
+3. Audit current Domain Admins membership for unauthorized additions
+4. Review security logs for recent group membership changes (Event ID 4728, 4732)
+5. Reset passwords for affected accounts
+6. Investigate how permissions were added - possible compromise
+"@
+        References = ""
+    }
+
+    "Enterprise Admins Group (CRITICAL)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Enterprise Admins have administrative rights across the entire forest. Unauthorized ACL rights on this group enable forest-wide compromise."
+        Remediation = @"
+1. IMMEDIATELY remove unauthorized ACL entries on Enterprise Admins group
+2. Only Enterprise Admins and SYSTEM should have write access
+3. Audit current Enterprise Admins membership
+4. Review security logs for membership changes (Event ID 4728, 4732)
+5. This is a forest-level security incident - engage security team
+6. Consider forest-wide password reset for privileged accounts
+"@
+        References = ""
+    }
+
+    "Other Privileged Groups (HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Other privileged groups (Schema Admins, Backup Operators, Account Operators, Server Operators, Print Operators) have unauthorized ACL entries. These groups have elevated privileges and should be tightly controlled."
+        Remediation = @"
+1. Remove unauthorized ACL entries from privileged groups
+2. Verify only appropriate administrators have write access
+3. Audit group memberships for unauthorized additions
+4. Document all exceptions with business justification
+5. Implement regular ACL reviews for privileged groups
+6. Enable auditing for group membership changes
+"@
+        References = ""
+    }
+
+    # Section 4: GPO Permissions
+    "Dangerous GPO Permissions (HIGH - Code Execution)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Group Policy Objects with unauthorized write access can be modified to execute arbitrary code on all computers/users affected by the GPO. This includes computer startup scripts, user logon scripts, scheduled tasks, and software installation."
+        Remediation = @"
+1. Review all unauthorized principals with write access to GPOs
+2. Remove GenericAll, GenericWrite, WriteDacl, WriteOwner permissions from non-admin accounts
+3. Verify GPO permissions follow least privilege principle
+4. Audit GPO modifications with Event ID 5136 and 5137
+5. Check for malicious GPO modifications (scripts, scheduled tasks, software deployment)
+6. Only Domain Admins and specific delegated GPO administrators should have write access
+7. Consider using GPO security filtering to limit scope
+"@
+        References = "https://adsecurity.org/?p=2716"
+    }
+
+    # Section 5: Privileged User Permissions
+    "Password Reset Rights (CRITICAL)" = @{
+        RiskLevel = "Critical"
+        RiskColor = "#8B0000"
+        Description = "CRITICAL: Unauthorized principals with User-Force-Change-Password extended right on privileged accounts (Domain/Enterprise Admins) can reset passwords and gain administrative access without knowing the current password."
+        Remediation = @"
+1. IMMEDIATELY remove User-Force-Change-Password rights from unauthorized principals
+2. Only Domain Admins and designated helpdesk accounts should have password reset rights
+3. NEVER delegate password reset rights for privileged accounts to low-privilege users
+4. Audit for recent password resets on privileged accounts (Event ID 4724)
+5. Reset passwords for affected accounts if unauthorized resets detected
+6. Investigate how these permissions were granted
+"@
+        References = ""
+    }
+
+    "Other Dangerous Rights GPO(HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Privileged user accounts have other dangerous ACL rights (GenericAll, GenericWrite, WriteDacl, WriteOwner, WriteProperty). These can be used for account takeover, privilege escalation, or persistence."
+        Remediation = @"
+1. Remove unauthorized dangerous ACL rights from privileged user accounts
+2. Review what specific rights are granted and to whom
+3. Verify no service accounts or regular users have write access
+4. Audit for suspicious account modifications
+5. Enable Protected Users group for privileged accounts (prevents delegation and weak crypto)
+6. Set 'Account is sensitive and cannot be delegated' flag
+"@
+        References = ""
+    }
+
+    # Section 6: Organizational Unit Permissions
+    "Top-Level OU Permissions (MEDIUM-HIGH)" = @{
+        RiskLevel = "High"
+        RiskColor = "#dc3545"
+        Description = "Top-level Organizational Units with dangerous ACL rights granted to unauthorized principals. OU permissions can allow GPO linking (code execution), object creation/deletion, and modification of contained objects."
+        Remediation = @"
+1. Review ACL entries on top-level OUs for unauthorized principals
+2. Remove excessive permissions (GenericAll, WriteDacl, WriteOwner)
+3. Verify delegated administrators have only necessary rights (no GenericAll)
+4. Check for unauthorized GPO links on OUs
+5. Audit OU structure modifications (Event ID 5136, 5137, 5139)
+6. Implement least privilege delegation model for OU administration
+7. Document all OU permission delegations with business justification
+"@
+        References = ""
+    }
 }
 
 # Export de hashtable zodat andere scripts het kunnen gebruiken

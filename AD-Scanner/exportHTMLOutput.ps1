@@ -362,11 +362,12 @@ function Export-ToHTML {
         foreach ($checkName in $moduleData.Keys) {
             $data = $moduleData[$checkName]
 
-            # Check for Module 3 nested structure (hashtable containing hashtables)
+            # Check for Module 3 or Module 4 nested structure (hashtable containing hashtables)
             $isModule3Nested = ($moduleName -match "Module 3" -and $data -is [hashtable])
+            $isModule4Nested = ($moduleName -match "Module 4" -and $data -is [hashtable])
 
-            if ($isModule3Nested) {
-                # Module 3: Nested structure - loop through sub-categories
+            if ($isModule3Nested -or $isModule4Nested) {
+                # Module 3 or Module 4: Nested structure - loop through sub-categories
                 foreach ($subCheckName in $data.Keys) {
                     $subData = $data[$subCheckName]
                     $moduleCheckCount++
@@ -491,7 +492,7 @@ function Export-ToHTML {
         $stats = $moduleStats[$moduleName]
         $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
         $riskClass = $stats.HighestRisk.ToLower()
-        $icon = if ($moduleName -match "Password") { "🔑" } elseif ($moduleName -match "Module 3") { "🔐" } else { "⚠️" }
+        $icon = if ($moduleName -match "Password") { "🔑" } elseif ($moduleName -match "Module 3") { "🔐" } elseif ($moduleName -match "Module 4") { "🔒" } else { "⚠️" }
 
         $dashboardCards += @"
         <div class="dashboard-card $riskClass" onclick="showView('$moduleId')">
@@ -550,14 +551,31 @@ function Export-ToHTML {
         $html += "<div class='module'>`n"
         $html += "<h2 class='module-title'>$moduleName</h2>`n"
 
-        # Check if this is Module 3 with nested structure
+        # Check if this is Module 3 or Module 4 with nested structure
         $isModule3 = ($moduleName -match "Module 3")
+        $isModule4 = ($moduleName -match "Module 4")
 
-        if ($isModule3) {
-            # === MODULE 3: 3-Laag structuur ===
-            # Laag 1: Module 3 kaart (al op dashboard)
-            # Laag 2: 9 controle types (sub-kaarten) - we tonen deze nu
+        if ($isModule3 -or $isModule4) {
+            # === MODULE 3 or MODULE 4: 3-Laag structuur ===
+            # Laag 1: Module kaart (al op dashboard)
+            # Laag 2: Controle types (sub-kaarten) - we tonen deze nu
             # Laag 3: Issues per object type binnen elke controle
+
+            # Module 4 disclaimer
+            if ($isModule4) {
+                $html += @"
+<div style='background: #fff3cd; border-left: 5px solid #ffc107; padding: 20px; margin-bottom: 25px; border-radius: 5px;'>
+    <h3 style='color: #856404; margin: 0 0 10px 0;'>ℹ️ Belangrijk: ACL Audit Overzicht</h3>
+    <p style='margin: 0; color: #856404; line-height: 1.6;'>
+        <strong>Dit zijn niet persé security issues</strong>, maar een overzicht van wie welke ACL rechten heeft op gevoelige objecten
+        zoals AdminSDHolder, Domain Object, privileged groups, GPOs, privileged users en OUs.<br><br>
+        <strong>Review elk resultaat</strong> om te bepalen of de ACL rechten legitiem zijn (bijv. een delegated admin)
+        of dat ze een security risk vormen (bijv. een gewone gebruiker met te veel rechten).
+    </p>
+</div>
+`n
+"@
+            }
 
             foreach ($categoryName in $moduleData.Keys) {
                 $categoryData = $moduleData[$categoryName]
