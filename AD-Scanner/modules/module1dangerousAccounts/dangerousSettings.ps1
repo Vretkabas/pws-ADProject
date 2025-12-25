@@ -9,20 +9,21 @@ function Show-AccountResults {
     if ($Accounts) {
         $count = ($Accounts | Measure-Object).Count
         Write-Host "$count $MessageFound" -ForegroundColor Yellow
-    } else {
+    }
+    else {
         Write-Host $MessageNotFound -ForegroundColor Green
     }
 }
 
 function Get-PasswordNeverExpiresAccounts {
     $accounts = Search-ADAccount -PasswordNeverExpires -UsersOnly |
-                Select-Object Name, SamAccountName |
-                Remove-DefaultAccounts
+    Select-Object Name, SamAccountName |
+    Remove-DefaultAccounts
 
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "account(s) with PasswordNeverExpires setting found" `
-                       -MessageNotFound "No accounts with PasswordNeverExpires setting found."
+        -MessageFound "account(s) with PasswordNeverExpires setting found" `
+        -MessageNotFound "No accounts with PasswordNeverExpires setting found."
 
     return $accounts
 }
@@ -31,16 +32,16 @@ function Get-DisabledAccounts {
     param([int]$DaysDisabled = 30)
 
     $accounts = Search-ADAccount -AccountDisabled -UsersOnly |
-                ForEach-Object {
-                    Get-ADUser $_.SamAccountName -Properties whenChanged |
-                    Where-Object {$_.whenChanged -lt (Get-Date).AddDays(-$DaysDisabled)} |
-                    Select-Object Name, SamAccountName, whenChanged
-                } |
-                Remove-DefaultAccounts
+    ForEach-Object {
+        Get-ADUser $_.SamAccountName -Properties whenChanged |
+        Where-Object { $_.whenChanged -lt (Get-Date).AddDays(-$DaysDisabled) } |
+        Select-Object Name, SamAccountName, whenChanged
+    } |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "disabled account(s) older than $DaysDisabled days" `
-                       -MessageNotFound "No disabled accounts older than $DaysDisabled days found."
+        -MessageFound "disabled account(s) older than $DaysDisabled days" `
+        -MessageNotFound "No disabled accounts older than $DaysDisabled days found."
 
     return $accounts
 }
@@ -49,16 +50,16 @@ function Get-InactiveAccounts {
     param([int]$DaysInactive = 60)
 
     $accounts = Search-ADAccount -AccountInactive -UsersOnly |
-                ForEach-Object {
-                    Get-ADUser $_.SamAccountName -Properties LastLogonDate |
-                    Where-Object {$_.LastLogonDate -lt (Get-Date).AddDays(-$DaysInactive)} |
-                    Select-Object Name, SamAccountName, LastLogonDate
-                } |
-                Remove-DefaultAccounts
+    ForEach-Object {
+        Get-ADUser $_.SamAccountName -Properties LastLogonDate |
+        Where-Object { $_.LastLogonDate -lt (Get-Date).AddDays(-$DaysInactive) } |
+        Select-Object Name, SamAccountName, LastLogonDate
+    } |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "inactive account(s) older than $DaysInactive days" `
-                       -MessageNotFound "No inactive accounts older than $DaysInactive days found."
+        -MessageFound "inactive account(s) older than $DaysInactive days" `
+        -MessageNotFound "No inactive accounts older than $DaysInactive days found."
 
     return $accounts
 }
@@ -67,40 +68,40 @@ function Get-ExpiredAccounts {
     param([int]$DaysExpired = 30)
 
     $accounts = Search-ADAccount -AccountExpired -UsersOnly |
-                ForEach-Object {
-                    Get-ADUser $_.SamAccountName -Properties AccountExpirationDate |
-                    Where-Object {$_.AccountExpirationDate -lt (Get-Date).AddDays(-$DaysExpired)} |
-                    Select-Object Name, SamAccountName, AccountExpirationDate
-                } |
-                Remove-DefaultAccounts
+    ForEach-Object {
+        Get-ADUser $_.SamAccountName -Properties AccountExpirationDate |
+        Where-Object { $_.AccountExpirationDate -lt (Get-Date).AddDays(-$DaysExpired) } |
+        Select-Object Name, SamAccountName, AccountExpirationDate
+    } |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "expired account(s) older than $DaysExpired days" `
-                       -MessageNotFound "No expired accounts older than $DaysExpired days found."
+        -MessageFound "expired account(s) older than $DaysExpired days" `
+        -MessageNotFound "No expired accounts older than $DaysExpired days found."
 
     return $accounts
 }
 
 function Get-LockedOutAccounts {
     $accounts = Search-ADAccount -LockedOut -UsersOnly |
-                Select-Object Name, SamAccountName |
-                Remove-DefaultAccounts
+    Select-Object Name, SamAccountName |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "locked out account(s) found" `
-                       -MessageNotFound "No locked out accounts found."
+        -MessageFound "locked out account(s) found" `
+        -MessageNotFound "No locked out accounts found."
 
     return $accounts
 }
 
 function Get-PasswordExpiredAccounts {
     $accounts = Search-ADAccount -PasswordExpired -UsersOnly |
-                Select-Object Name, SamAccountName |
-                Remove-DefaultAccounts
+    Select-Object Name, SamAccountName |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "account(s) with expired passwords found" `
-                       -MessageNotFound "No accounts with expired passwords found."
+        -MessageFound "account(s) with expired passwords found" `
+        -MessageNotFound "No accounts with expired passwords found."
 
     return $accounts
 }
@@ -117,36 +118,36 @@ function Get-DescriptionPassword {
     $accounts = $allUsers | Where-Object {
         $_.Description -and ($_.Description -match $pattern)
     } | Select-Object Name, SamAccountName, Description |
-      Remove-DefaultAccounts
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "account(s) with password in description found" `
-                       -MessageNotFound "No accounts with password in description found."
+        -MessageFound "account(s) with password in description found" `
+        -MessageNotFound "No accounts with password in description found."
 
     return $accounts
 }
 
 function Get-PasswordNotRequiredAccounts {
-    $accounts = Get-ADUser -Filter {PasswordNotRequired -eq $true} -Properties PasswordNotRequired |
-                Select-Object Name, SamAccountName |
-                Remove-DefaultAccounts
+    $accounts = Get-ADUser -Filter { PasswordNotRequired -eq $true } -Properties PasswordNotRequired |
+    Select-Object Name, SamAccountName |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "account(s) with PasswordNotRequired setting found" `
-                       -MessageNotFound "No accounts with PasswordNotRequired setting found."
+        -MessageFound "account(s) with PasswordNotRequired setting found" `
+        -MessageNotFound "No accounts with PasswordNotRequired setting found."
 
     return $accounts
 }
 
 function Get-CannotChangePasswordAccounts {
     $accounts = Get-ADUser -Filter * -Properties CannotChangePassword |
-                Where-Object { $_.CannotChangePassword -eq $true } |
-                Select-Object Name, SamAccountName |
-                Remove-DefaultAccounts
+    Where-Object { $_.CannotChangePassword -eq $true } |
+    Select-Object Name, SamAccountName |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "account(s) that cannot change password found" `
-                       -MessageNotFound "No accounts that cannot change password found."
+        -MessageFound "account(s) that cannot change password found" `
+        -MessageNotFound "No accounts that cannot change password found."
 
     return $accounts
 }
@@ -155,16 +156,16 @@ function Get-OldPasswordAccounts {
     param([int]$DaysOld = 90)
 
     $accounts = Get-ADUser -Filter * -Properties PasswordLastSet |
-                Where-Object {
-                    $_.PasswordLastSet -and
-                    ($_.PasswordLastSet -lt (Get-Date).AddDays(-$DaysOld))
-                } |
-                Select-Object Name, SamAccountName, PasswordLastSet |
-                Remove-DefaultAccounts
+    Where-Object {
+        $_.PasswordLastSet -and
+        ($_.PasswordLastSet -lt (Get-Date).AddDays(-$DaysOld))
+    } |
+    Select-Object Name, SamAccountName, PasswordLastSet |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "account(s) with passwords older than $DaysOld days found" `
-                       -MessageNotFound "No accounts with passwords older than $DaysOld days found."
+        -MessageFound "account(s) with passwords older than $DaysOld days found" `
+        -MessageNotFound "No accounts with passwords older than $DaysOld days found."
 
     return $accounts
 }
@@ -172,25 +173,25 @@ function Get-OldPasswordAccounts {
 #functie om accounts met adminCount=1 te vinden maar niet meer in protected groups zitten
 #voor meer info check documentatie module1.txt
 function Get-AdminCountAccounts {
-    $accounts = Get-ADUser -Filter {adminCount -eq 1} -Properties adminCount, MemberOf |
-                Where-Object {
-                    # Filter alleen users die NIET meer in protected groups zitten
-                    $protectedGroups = @("Domain Admins", "Enterprise Admins", "Schema Admins", "Administrators")
-                    $inProtectedGroup = $false
-                    foreach ($group in $_.MemberOf) {
-                        if ($protectedGroups | Where-Object {$group -like "*$_*"}) {
-                            $inProtectedGroup = $true
-                            break
-                        }
-                    }
-                    -not $inProtectedGroup
-                } |
-                Select-Object Name, SamAccountName |
-                Remove-DefaultAccounts
+    $accounts = Get-ADUser -Filter { adminCount -eq 1 } -Properties adminCount, MemberOf |
+    Where-Object {
+        # Filter alleen users die NIET meer in protected groups zitten
+        $protectedGroups = @("Domain Admins", "Enterprise Admins", "Schema Admins", "Administrators")
+        $inProtectedGroup = $false
+        foreach ($group in $_.MemberOf) {
+            if ($protectedGroups | Where-Object { $group -like "*$_*" }) {
+                $inProtectedGroup = $true
+                break
+            }
+        }
+        -not $inProtectedGroup
+    } |
+    Select-Object Name, SamAccountName |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "account(s) with adminCount=1 but not in protected groups found" `
-                       -MessageNotFound "No orphaned adminCount accounts found."
+        -MessageFound "account(s) with adminCount=1 but not in protected groups found" `
+        -MessageNotFound "No orphaned adminCount accounts found."
 
     return $accounts
 }
@@ -199,13 +200,13 @@ function Get-AdminCountAccounts {
 #zie documentatie module1.txt voor meer info
 function Get-SIDHistoryAccounts {
     $accounts = Get-ADUser -Filter * -Properties SIDHistory |
-                Where-Object {$_.SIDHistory} |
-                Select-Object Name, SamAccountName, @{Name='SIDHistory';Expression={$_.SIDHistory -join ', '}} |
-                Remove-DefaultAccounts
+    Where-Object { $_.SIDHistory } |
+    Select-Object Name, SamAccountName, @{Name = 'SIDHistory'; Expression = { $_.SIDHistory -join ', ' } } |
+    Remove-DefaultAccounts
 
     Show-AccountResults -Accounts $accounts `
-                       -MessageFound "account(s) with SID history found" `
-                       -MessageNotFound "No accounts with SID history found."
+        -MessageFound "account(s) with SID history found" `
+        -MessageNotFound "No accounts with SID history found."
 
     return $accounts
 }
@@ -213,7 +214,7 @@ function Get-SIDHistoryAccounts {
 #functie om default accounts en SPN accounts uit te sluiten
 function Remove-DefaultAccounts {
     param(
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Object[]]$Accounts
     )
 

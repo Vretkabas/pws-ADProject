@@ -14,12 +14,12 @@ function Get-DangerousRights {
 
 function Get-InterestingExtendedRights {
     return @{
-        'User-Force-Change-Password'                     = '00299570-246d-11d0-a768-00aa006e0529'
-        'DS-Replication-Get-Changes'                     = '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'
-        'DS-Replication-Get-Changes-All'                 = '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'
-        'DS-Replication-Get-Changes-In-Filtered-Set'     = '89e95b76-444d-4c62-991a-0facbeda640c'
-        'User-Account-Restrictions'                      = '4c164200-20c0-11d0-a768-00aa006e0529'
-        'Validated-SPN'                                  = 'f3a64788-5306-11d1-a9c5-0000f80367c1'
+        'User-Force-Change-Password'                 = '00299570-246d-11d0-a768-00aa006e0529'
+        'DS-Replication-Get-Changes'                 = '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'
+        'DS-Replication-Get-Changes-All'             = '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'
+        'DS-Replication-Get-Changes-In-Filtered-Set' = '89e95b76-444d-4c62-991a-0facbeda640c'
+        'User-Account-Restrictions'                  = '4c164200-20c0-11d0-a768-00aa006e0529'
+        'Validated-SPN'                              = 'f3a64788-5306-11d1-a9c5-0000f80367c1'
     }
 }
 
@@ -98,9 +98,10 @@ function Remove-DuplicateACLEntries {
     }
 
     # Group by unique combination van Trustee + ObjectPath + Rights
-    $uniqueEntries = $Entries | Group-Object -Property @{Expression={
-        "$($_.Trustee)|$($_.ObjectPath)|$($_.Rights)"
-    }} | ForEach-Object { $_.Group | Select-Object -First 1 }
+    $uniqueEntries = $Entries | Group-Object -Property @{Expression = {
+            "$($_.Trustee)|$($_.ObjectPath)|$($_.Rights)"
+        }
+    } | ForEach-Object { $_.Group | Select-Object -First 1 }
 
     return $uniqueEntries
 }
@@ -133,13 +134,13 @@ function Get-AdminSDHolderACL {
 
             if ($rightName -in $dangerousRights -or $rightName -like '*All*' -or $rightName -like '*Write*') {
                 $results += [PSCustomObject]@{
-                    Object       = 'AdminSDHolder'
-                    ObjectPath   = $adminSDHolder.DistinguishedName
-                    Trustee      = $identity
-                    TrusteeSID   = $ace.IdentityReference.Value
-                    Rights       = $rightName
-                    AccessType   = $ace.AccessControlType.ToString()
-                    ObjectType   = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
+                    Object     = 'AdminSDHolder'
+                    ObjectPath = $adminSDHolder.DistinguishedName
+                    Trustee    = $identity
+                    TrusteeSID = $ace.IdentityReference.Value
+                    Rights     = $rightName
+                    AccessType = $ace.AccessControlType.ToString()
+                    ObjectType = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
                 }
             }
         }
@@ -179,26 +180,26 @@ function Get-DomainObjectACL {
                 $ace.ObjectType -eq $extendedRights['DS-Replication-Get-Changes-All']) {
 
                 $results += [PSCustomObject]@{
-                    Object       = 'Domain Root - DCSync'
-                    ObjectPath   = $domainObj.DistinguishedName
-                    Trustee      = $identity
-                    TrusteeSID   = $ace.IdentityReference.Value
-                    Rights       = "DCSync Rights ($rightName)"
-                    AccessType   = $ace.AccessControlType.ToString()
-                    ObjectType   = $ace.ObjectType.ToString()
+                    Object     = 'Domain Root - DCSync'
+                    ObjectPath = $domainObj.DistinguishedName
+                    Trustee    = $identity
+                    TrusteeSID = $ace.IdentityReference.Value
+                    Rights     = "DCSync Rights ($rightName)"
+                    AccessType = $ace.AccessControlType.ToString()
+                    ObjectType = $ace.ObjectType.ToString()
                 }
             }
 
             # Check voor andere dangerous rights
             if ($rightName -in $dangerousRights) {
                 $results += [PSCustomObject]@{
-                    Object       = 'Domain Root'
-                    ObjectPath   = $domainObj.DistinguishedName
-                    Trustee      = $identity
-                    TrusteeSID   = $ace.IdentityReference.Value
-                    Rights       = $rightName
-                    AccessType   = $ace.AccessControlType.ToString()
-                    ObjectType   = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
+                    Object     = 'Domain Root'
+                    ObjectPath = $domainObj.DistinguishedName
+                    Trustee    = $identity
+                    TrusteeSID = $ace.IdentityReference.Value
+                    Rights     = $rightName
+                    AccessType = $ace.AccessControlType.ToString()
+                    ObjectType = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
                 }
             }
         }
@@ -250,13 +251,13 @@ function Get-PrivilegedGroupACL {
                     $rightName -in $dangerousRights) {
 
                     $results += [PSCustomObject]@{
-                        GroupName    = $groupName
-                        ObjectPath   = $group.DistinguishedName
-                        Trustee      = $identity
-                        TrusteeSID   = $ace.IdentityReference.Value
-                        Rights       = $rightName
-                        AccessType   = $ace.AccessControlType.ToString()
-                        ObjectType   = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
+                        GroupName  = $groupName
+                        ObjectPath = $group.DistinguishedName
+                        Trustee    = $identity
+                        TrusteeSID = $ace.IdentityReference.Value
+                        Rights     = $rightName
+                        AccessType = $ace.AccessControlType.ToString()
+                        ObjectType = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
                     }
                 }
             }
@@ -298,13 +299,13 @@ function Get-GPOObjectACL {
 
                     if ($rightName -in $dangerousRights) {
                         $results += [PSCustomObject]@{
-                            GPOName      = $gpo.DisplayName
-                            ObjectPath   = $gpoObj.DistinguishedName
-                            Trustee      = $identity
-                            TrusteeSID   = $ace.IdentityReference.Value
-                            Rights       = $rightName
-                            AccessType   = $ace.AccessControlType.ToString()
-                            ObjectType   = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
+                            GPOName    = $gpo.DisplayName
+                            ObjectPath = $gpoObj.DistinguishedName
+                            Trustee    = $identity
+                            TrusteeSID = $ace.IdentityReference.Value
+                            Rights     = $rightName
+                            AccessType = $ace.AccessControlType.ToString()
+                            ObjectType = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
                         }
                     }
                 }
@@ -368,26 +369,26 @@ function Get-PrivilegedUserACL {
                 # Check voor Password Reset
                 if ($ace.ObjectType -eq $extendedRights['User-Force-Change-Password']) {
                     $results += [PSCustomObject]@{
-                        UserName     = $userObj.SamAccountName
-                        ObjectPath   = $userObj.DistinguishedName
-                        Trustee      = $identity
-                        TrusteeSID   = $ace.IdentityReference.Value
-                        Rights       = "User-Force-Change-Password"
-                        AccessType   = $ace.AccessControlType.ToString()
-                        ObjectType   = $ace.ObjectType.ToString()
+                        UserName   = $userObj.SamAccountName
+                        ObjectPath = $userObj.DistinguishedName
+                        Trustee    = $identity
+                        TrusteeSID = $ace.IdentityReference.Value
+                        Rights     = "User-Force-Change-Password"
+                        AccessType = $ace.AccessControlType.ToString()
+                        ObjectType = $ace.ObjectType.ToString()
                     }
                 }
 
                 # Check voor andere dangerous rights
                 if ($rightName -in $dangerousRights) {
                     $results += [PSCustomObject]@{
-                        UserName     = $userObj.SamAccountName
-                        ObjectPath   = $userObj.DistinguishedName
-                        Trustee      = $identity
-                        TrusteeSID   = $ace.IdentityReference.Value
-                        Rights       = $rightName
-                        AccessType   = $ace.AccessControlType.ToString()
-                        ObjectType   = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
+                        UserName   = $userObj.SamAccountName
+                        ObjectPath = $userObj.DistinguishedName
+                        Trustee    = $identity
+                        TrusteeSID = $ace.IdentityReference.Value
+                        Rights     = $rightName
+                        AccessType = $ace.AccessControlType.ToString()
+                        ObjectType = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
                     }
                 }
             }
@@ -425,13 +426,13 @@ function Get-OUObjectACL {
 
                 if ($rightName -in $dangerousRights) {
                     $results += [PSCustomObject]@{
-                        OUName       = $ou.Name
-                        ObjectPath   = $ou.DistinguishedName
-                        Trustee      = $identity
-                        TrusteeSID   = $ace.IdentityReference.Value
-                        Rights       = $rightName
-                        AccessType   = $ace.AccessControlType.ToString()
-                        ObjectType   = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
+                        OUName     = $ou.Name
+                        ObjectPath = $ou.DistinguishedName
+                        Trustee    = $identity
+                        TrusteeSID = $ace.IdentityReference.Value
+                        Rights     = $rightName
+                        AccessType = $ace.AccessControlType.ToString()
+                        ObjectType = if ($ace.ObjectType) { $ace.ObjectType.ToString() } else { "All" }
                     }
                 }
             }
@@ -493,32 +494,32 @@ function Invoke-ACLAudit {
 
     $results = @{
         # AdminSDHolder
-        AdminSDHolder      = @{
+        AdminSDHolder       = @{
             All = $allAdminSDHolder
         }
 
         # Domain Object
-        DomainObject       = @{
+        DomainObject        = @{
             All    = $allDomainObject
             DCSync = $domainObject_DCSync
             Other  = $domainObject_Other
         }
 
         # Privileged Groups
-        PrivilegedGroups   = @{
-            All               = $allPrivilegedGroups
-            DomainAdmins      = $privGroups_DomainAdmins
-            EnterpriseAdmins  = $privGroups_EnterpriseAdmins
-            Other             = $privGroups_Other
+        PrivilegedGroups    = @{
+            All              = $allPrivilegedGroups
+            DomainAdmins     = $privGroups_DomainAdmins
+            EnterpriseAdmins = $privGroups_EnterpriseAdmins
+            Other            = $privGroups_Other
         }
 
         # GPOs
-        GPOs               = @{
+        GPOs                = @{
             All = $allGPOs
         }
 
         # Privileged Users
-        PrivilegedUsers    = @{
+        PrivilegedUsers     = @{
             All           = $allPrivilegedUsers
             PasswordReset = $privUsers_PasswordReset
             Other         = $privUsers_Other
