@@ -1,37 +1,180 @@
-# deze script verzamelt alle gegevens dat we nodig hebben in module 2
+# Module 2: Kerberos SPN Audit & Remediation
+# Dit script verzamelt alle SPN account settings, encryption types en password policy data
+
+# Import functies
 . "$PSScriptRoot\SPNAudit.ps1"
 
-# Encryptie settings SPN accounts
-$encryptionSettingsSPN = Get-EncryptionType -servicePrincipalName $(Get-ServiceAccounts)
-# Account settings SPN accounts
-$accountSettings = Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
+Write-Host "`n=== Module 2: Kerberos SPN Audit ===" -ForegroundColor Cyan
 
-# mapping for checks.ps1 later
+# ============================================
+# STAP 1: Eerste scan (met output)
+# ============================================
+Write-Host "`nScanning Active Directory for SPN accounts and settings...`n" -ForegroundColor Yellow
+
+# Haal SPN accounts op
+$serviceAccounts = Get-ServiceAccounts
+$accountCount = ($serviceAccounts | Measure-Object).Count
+Write-Host "Found $accountCount SPN account(s)" -ForegroundColor Cyan
+
+# Encryptie settings SPN accounts
+$encryptionSettingsSPN = Get-EncryptionType -servicePrincipalName $serviceAccounts
+
+# Account settings SPN accounts
+$accountSettingsSPN = Get-SPNAccountSettings -servicePrincipalName $serviceAccounts
+
+# ============================================
+# Show Account Check Results
+# ============================================
+Write-Host "`n--- Encryption Settings ---" -ForegroundColor Cyan
+
+$weakEncryption = $encryptionSettingsSPN | Where-Object { $_.HasWeakEncryption -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $weakEncryption `
+    -MessageFound "SPN account(s) with weak encryption (DES or RC4 without AES)" `
+    -MessageNotFound "No SPN accounts with weak encryption found."
+
+$desEncryption = $encryptionSettingsSPN | Where-Object { $_.HasDES -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $desEncryption `
+    -MessageFound "SPN account(s) with DES encryption (CRITICAL)" `
+    -MessageNotFound "No SPN accounts with DES encryption found."
+
+$rc4Only = $encryptionSettingsSPN | Where-Object { $_.HasRC4Only -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $rc4Only `
+    -MessageFound "SPN account(s) with RC4 only (no AES)" `
+    -MessageNotFound "No SPN accounts with RC4 only found."
+
+Write-Host "`n--- Account Settings ---" -ForegroundColor Cyan
+
+$pwNeverExpires = $accountSettingsSPN | Where-Object { $_.PasswordNeverExpires -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $pwNeverExpires `
+    -MessageFound "SPN account(s) with password never expires" `
+    -MessageNotFound "No SPN accounts with password never expires found."
+
+$pwNotRequired = $accountSettingsSPN | Where-Object { $_.PasswordNotRequired -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $pwNotRequired `
+    -MessageFound "SPN account(s) with password not required" `
+    -MessageNotFound "No SPN accounts with password not required found."
+
+$cannotChangePw = $accountSettingsSPN | Where-Object { $_.CannotChangePassword -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $cannotChangePw `
+    -MessageFound "SPN account(s) that cannot change password" `
+    -MessageNotFound "No SPN accounts that cannot change password found."
+
+$pwExpired = $accountSettingsSPN | Where-Object { $_.PasswordExpired -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $pwExpired `
+    -MessageFound "SPN account(s) with expired password" `
+    -MessageNotFound "No SPN accounts with expired password found."
+
+$disabledAccounts = $accountSettingsSPN | Where-Object { $_.Enabled -eq $false } | Select-Object SamAccountName
+Show-SPNResults -Accounts $disabledAccounts `
+    -MessageFound "disabled SPN account(s)" `
+    -MessageNotFound "No disabled SPN accounts found."
+
+$lockedOut = $accountSettingsSPN | Where-Object { $_.LockedOut -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $lockedOut `
+    -MessageFound "locked out SPN account(s)" `
+    -MessageNotFound "No locked out SPN accounts found."
+
+$reversiblePw = $accountSettingsSPN | Where-Object { $_.allowReversiblePasswordEncryption -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $reversiblePw `
+    -MessageFound "SPN account(s) with reversible password encryption" `
+    -MessageNotFound "No SPN accounts with reversible password encryption found."
+
+$noPreAuth = $accountSettingsSPN | Where-Object { $_.doesNotRequirePreAuth -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $noPreAuth `
+    -MessageFound "SPN account(s) that do not require pre-authentication (AS-REP Roasting)" `
+    -MessageNotFound "No SPN accounts without pre-auth requirement found."
+
+$trustedDelegation = $accountSettingsSPN | Where-Object { $_.trustedForDelegation -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $trustedDelegation `
+    -MessageFound "SPN account(s) trusted for delegation (Unconstrained)" `
+    -MessageNotFound "No SPN accounts with unconstrained delegation found."
+
+$trustedAuthDelegation = $accountSettingsSPN | Where-Object { $_.trustedToAuthForDelegation -eq $true } | Select-Object SamAccountName
+Show-SPNResults -Accounts $trustedAuthDelegation `
+    -MessageFound "SPN account(s) trusted to authenticate for delegation" `
+    -MessageNotFound "No SPN accounts with constrained delegation found."
+
+$oldPasswords = $accountSettingsSPN | Where-Object { $_.passwordAgeDays -gt 90 } | Select-Object SamAccountName
+Show-SPNResults -Accounts $oldPasswords `
+    -MessageFound "SPN account(s) with password age >90 days" `
+    -MessageNotFound "No SPN accounts with old passwords (>90 days) found."
+
+# Mapping for checks.ps1 & HTML export
 $module2Results = @{
-    "Weak Encryption (DES or RC4 without AES)" = $encryptionSettingsSPN | Where-Object { $_.HasWeakEncryption -eq $true } | Select-Object SamAccountName
-    "DES Encryption (Critical)" = $encryptionSettingsSPN | Where-Object { $_.HasDES -eq $true } | Select-Object SamAccountName
-    "RC4 Only (No AES)" = $encryptionSettingsSPN | Where-Object { $_.HasRC4Only -eq $true } | Select-Object SamAccountName
+    "Weak Encryption (DES or RC4 without AES)" = $weakEncryption
+    "DES Encryption (Critical)" = $desEncryption
+    "RC4 Only (No AES)" = $rc4Only
     "AES Only (Best Practice)" = $encryptionSettingsSPN | Where-Object { $_.HasAESOnly -eq $true } | Select-Object SamAccountName
     "AES with RC4 (Acceptable)" = $encryptionSettingsSPN | Where-Object { $_.HasAES -eq $true -and $_.HasRC4 -eq $true -and $_.HasDES -eq $false } | Select-Object SamAccountName
-    "Password never expires on SPN accounts" = $accountSettings | Where-Object { $_.PasswordNeverExpires -eq $true } | Select-Object SamAccountName
-    "Password not required on SPN accounts" = $accountSettings | Where-Object { $_.PasswordNotRequired -eq $true } | Select-Object SamAccountName
-    "Cannot change password on SPN accounts" = $accountSettings | Where-Object { $_.CannotChangePassword -eq $true } | Select-Object SamAccountName
-    "Password expired on SPN accounts" = $accountSettings | Where-Object { $_.PasswordExpired -eq $true } | Select-Object SamAccountName
-    "Disabled SPN accounts" = $accountSettings | Where-Object { $_.Enabled -eq $false } | Select-Object SamAccountName
-    "Locked out SPN accounts" = $accountSettings | Where-Object { $_.LockedOut -eq $true } | Select-Object SamAccountName
-    "Allow reversible password encryption on SPN accounts" = $accountSettings | Where-Object { $_.allowReversiblePasswordEncryption -eq $true } | Select-Object SamAccountName
-    "Does not require pre-authentication on SPN accounts" = $accountSettings | Where-Object { $_.doesNotRequirePreAuth -eq $true } | Select-Object SamAccountName
-    "Trusted for delegation SPN accounts" = $accountSettings | Where-Object { $_.trustedForDelegation -eq $true } | Select-Object SamAccountName
-    "Trusted to authenticate for delegation SPN accounts" = $accountSettings | Where-Object { $_.trustedToAuthForDelegation -eq $true } | Select-Object SamAccountName
-    "Account not delegated SPN accounts" = $accountSettings | Where-Object { $_.accountNotDelegated -eq $true } | Select-Object SamAccountName
-    "SPN accounts with password age >90 days" = $accountSettings | Where-Object { $_.passwordAgeDays -gt 90  } | Select-Object SamAccountName
+    "Password never expires on SPN accounts" = $pwNeverExpires
+    "Password not required on SPN accounts" = $pwNotRequired
+    "Cannot change password on SPN accounts" = $cannotChangePw
+    "Password expired on SPN accounts" = $pwExpired
+    "Disabled SPN accounts" = $disabledAccounts
+    "Locked out SPN accounts" = $lockedOut
+    "Allow reversible password encryption on SPN accounts" = $reversiblePw
+    "Does not require pre-authentication on SPN accounts" = $noPreAuth
+    "Trusted for delegation SPN accounts" = $trustedDelegation
+    "Trusted to authenticate for delegation SPN accounts" = $trustedAuthDelegation
+    "Account not delegated SPN accounts" = $accountSettingsSPN | Where-Object { $_.accountNotDelegated -eq $true } | Select-Object SamAccountName
+    "SPN accounts with password age >90 days" = $oldPasswords
 }
 
+# ============================================
+# Show Password Policy Results
+# ============================================
+Write-Host "`n--- Password Policies ---" -ForegroundColor Cyan
 
-# get all FGPP issues for SPN accounts (or default policy if no FGPP)
+# Get all FGPP issues for SPN accounts (or default policy if no FGPP)
 $fgppIssuesSPN = Get-PasswordPoliciesSPN
 
-#return results as hashtable
+Write-Host "`n=== Initial Scan Completed ===" -ForegroundColor Green
+
+# ============================================
+# STAP 2 & 3: Remediation Menu (from separate file)
+# ============================================
+$issuesFixed = . "$PSScriptRoot\remediationMenu.ps1" -Module2Results $module2Results
+
+# ============================================
+# STAP 4: Re-scan ALLEEN als er iets gefixt is
+# ============================================
+if ($issuesFixed) {
+    Write-Host "`n=== Re-scanning to update results ===" -ForegroundColor Cyan
+    Write-Host "Running silent scan...`n" -ForegroundColor Gray
+
+    $global:SilentScan = $true
+
+    # Re-scan alle checks (identiek aan eerste scan)
+    $serviceAccounts = Get-ServiceAccounts
+    $encryptionSettingsSPN = Get-EncryptionType -servicePrincipalName $serviceAccounts
+    $accountSettingsSPN = Get-SPNAccountSettings -servicePrincipalName $serviceAccounts
+
+    $module2Results = @{
+        "Weak Encryption (DES or RC4 without AES)" = $encryptionSettingsSPN | Where-Object { $_.HasWeakEncryption -eq $true } | Select-Object SamAccountName
+        "DES Encryption (Critical)" = $encryptionSettingsSPN | Where-Object { $_.HasDES -eq $true } | Select-Object SamAccountName
+        "RC4 Only (No AES)" = $encryptionSettingsSPN | Where-Object { $_.HasRC4Only -eq $true } | Select-Object SamAccountName
+        "AES Only (Best Practice)" = $encryptionSettingsSPN | Where-Object { $_.HasAESOnly -eq $true } | Select-Object SamAccountName
+        "AES with RC4 (Acceptable)" = $encryptionSettingsSPN | Where-Object { $_.HasAES -eq $true -and $_.HasRC4 -eq $true -and $_.HasDES -eq $false } | Select-Object SamAccountName
+        "Password never expires on SPN accounts" = $accountSettingsSPN | Where-Object { $_.PasswordNeverExpires -eq $true } | Select-Object SamAccountName
+        "Password not required on SPN accounts" = $accountSettingsSPN | Where-Object { $_.PasswordNotRequired -eq $true } | Select-Object SamAccountName
+        "Cannot change password on SPN accounts" = $accountSettingsSPN | Where-Object { $_.CannotChangePassword -eq $true } | Select-Object SamAccountName
+        "Password expired on SPN accounts" = $accountSettingsSPN | Where-Object { $_.PasswordExpired -eq $true } | Select-Object SamAccountName
+        "Disabled SPN accounts" = $accountSettingsSPN | Where-Object { $_.Enabled -eq $false } | Select-Object SamAccountName
+        "Locked out SPN accounts" = $accountSettingsSPN | Where-Object { $_.LockedOut -eq $true } | Select-Object SamAccountName
+        "Allow reversible password encryption on SPN accounts" = $accountSettingsSPN | Where-Object { $_.allowReversiblePasswordEncryption -eq $true } | Select-Object SamAccountName
+        "Does not require pre-authentication on SPN accounts" = $accountSettingsSPN | Where-Object { $_.doesNotRequirePreAuth -eq $true } | Select-Object SamAccountName
+        "Trusted for delegation SPN accounts" = $accountSettingsSPN | Where-Object { $_.trustedForDelegation -eq $true } | Select-Object SamAccountName
+        "Trusted to authenticate for delegation SPN accounts" = $accountSettingsSPN | Where-Object { $_.trustedToAuthForDelegation -eq $true } | Select-Object SamAccountName
+        "Account not delegated SPN accounts" = $accountSettingsSPN | Where-Object { $_.accountNotDelegated -eq $true } | Select-Object SamAccountName
+        "SPN accounts with password age >90 days" = $accountSettingsSPN | Where-Object { $_.passwordAgeDays -gt 90 } | Select-Object SamAccountName
+    }
+
+    $global:SilentScan = $false
+
+    Write-Host "✓ Re-scan completed with updated data!" -ForegroundColor Green
+}
+
+# Return results as hashtable
 return @{
     AccountChecks    = $module2Results
     PasswordPolicies = $fgppIssuesSPN

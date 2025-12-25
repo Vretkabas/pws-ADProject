@@ -2,12 +2,44 @@
 # deze file zal SPN accounts auditen in de AD
 Import-Module ActiveDirectory
 
+#region Helper Functions
+
+# Helper functie om resultaten te tonen (zoals Module 1)
+function Show-SPNResults {
+    param(
+        [Object[]]$Accounts,
+        [string]$MessageFound,
+        [string]$MessageNotFound
+    )
+
+    # Skip output als we in silent mode zijn (tijdens re-scan)
+    if ($global:SilentScan) {
+        return
+    }
+
+    if ($Accounts) {
+        $count = ($Accounts | Measure-Object).Count
+        Write-Host "$count $MessageFound" -ForegroundColor Yellow
+    }
+    else {
+        Write-Host $MessageNotFound -ForegroundColor Green
+    }
+}
+
+#endregion
+
+#region SPN Account Discovery
+
 # Zoek alle service accounts in de AD
 function Get-ServiceAccounts {
     $serviceAccounts = Get-ADUser -Filter { ServicePrincipalName -like "*" } -Properties *
     return $serviceAccounts
 }
-# Get-ServiceAccounts
+
+#endregion
+
+#region Encryption Analysis
+
 # #1 encyrptie controleren op service accounts
 function Get-EncryptionType {
     param($servicePrincipalName)
@@ -67,6 +99,10 @@ function Get-EncryptionType {
     return $spnList
 }
 
+#endregion
+
+#region Account Settings Analysis
+
 # #2 Account settings SPN accounts controleren 
 function Get-SPNAccountSettings {
     param($servicePrincipalName)
@@ -109,6 +145,9 @@ function Get-SPNAccountSettings {
     return $pswSettings
 }
 
+#endregion
+
+#region Password Policy Analysis
 
 # #3 FGPP for SPN accounts check
 # We will use functions from passwordSettings.ps1
@@ -117,6 +156,8 @@ function Get-PasswordPoliciesSPN {
     $passwordPoliciesSPN = Get-PasswordPolicyAnalysis -isSPNCK $true
     return $passwordPoliciesSPN
 }
+
+#endregion
 
 
 # Get-SPNAccountSettings -servicePrincipalName $(Get-ServiceAccounts)
