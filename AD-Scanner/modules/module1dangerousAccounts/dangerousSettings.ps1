@@ -1,10 +1,16 @@
 # Helper functie om resultaten te tonen (DRY)
+# wil be shown when running script in terminal messaged
 function Show-AccountResults {
     param(
         [Object[]]$Accounts,
         [string]$MessageFound,
         [string]$MessageNotFound
     )
+
+    # Skip output als we in silent mode zijn (tijdens re-scan)
+    if ($global:SilentScan) {
+        return
+    }
 
     if ($Accounts) {
         $count = ($Accounts | Measure-Object).Count

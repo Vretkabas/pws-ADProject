@@ -1,0 +1,23 @@
+User runt module1.ps1
+  ↓
+Eerste scan (toont issues)
+  ↓
+remediationMenu.ps1 start
+  ↓
+Menu toont: "1. 5 accounts with PasswordNeverExpires"
+            "2. 3 accounts with disabled accounts"
+            "0. Skip remediation"
+  ↓
+User kiest "1"
+  ↓
+Toont account lijst → vraagt confirmatie
+  ↓
+Set-PasswordNeverExpiresFix voert fix uit
+  ↓
+Vraagt: "Fix another issue?"
+  ↓
+User kiest "0" (of done)
+  ↓
+Terug naar module1.ps1 → RE-SCAN
+  ↓
+Return correcte (gefixte) data voor HTML

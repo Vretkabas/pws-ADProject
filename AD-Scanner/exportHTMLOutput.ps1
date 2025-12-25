@@ -756,7 +756,6 @@ function Export-ToHTML {
 
                 # Badge met user count (niet issue count) voor password policies
                 $userCount = $data.AppliedUserCount
-                $totalIssues += $userCount
                 $badgeClass = if ($highestRisk -eq "Critical") { "badge-danger" } elseif ($highestRisk -eq "High") { "badge-danger" } elseif ($highestRisk -eq "Medium") { "badge-warning" } else { "badge-warning" }
                 $html += "<span class='badge $badgeClass'>$userCount user(s) affected - $highestRisk Risk</span>`n"
 
@@ -846,7 +845,6 @@ function Export-ToHTML {
 
                 if ($accounts -and $accounts.Count -gt 0) {
                     $count = ($accounts | Measure-Object).Count
-                    $totalIssues += $count
 
                     # Haal risk level op voor deze check
                     $info = $checkInfo[$checkName]
