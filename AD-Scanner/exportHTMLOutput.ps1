@@ -614,8 +614,21 @@ function Export-ToHTML {
 
                     if ($hasData) {
                         $info = $checkInfo[$issueName]
-                        $badgeClass = if ($info -and $info.RiskLevel -eq "Critical") { "badge-danger" } elseif ($info -and $info.RiskLevel -eq "High") { "badge-danger" } elseif ($info -and $info.RiskLevel -eq "Medium") { "badge-warning" } else { "badge-warning" }
-                        $html += "<span class='badge $badgeClass'>$count account(s)</span>`n"
+                        if ($info) {
+                            $riskLevel = $info.RiskLevel
+                            $riskScore = $info.RiskScore
+                            $badgeClass = switch ($riskLevel) {
+                                "Critical" { "badge-danger" }
+                                "High" { "badge-danger" }
+                                "Medium" { "badge-warning" }
+                                "Low" { "badge-success" }
+                                default { "badge-warning" }
+                            }
+                            $html += "<span class='badge $badgeClass'>$count account(s) - $riskLevel Risk (Score: $riskScore)</span>`n"
+                        } else {
+                            $badgeClass = "badge-warning"
+                            $html += "<span class='badge $badgeClass'>$count account(s)</span>`n"
+                        }
                     } else {
                         $html += "<span class='badge badge-success'>No issues found</span>`n"
                     }
@@ -684,6 +697,20 @@ function Export-ToHTML {
                         $html += "        </div>`n"
                         $html += "        <div class='modal-body'>`n"
                         $html += "            <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
+
+                        # Toon risk score en breakdown
+                        $severity = $info.Severity
+                        $exploitability = $info.Exploitability
+                        $exposure = $info.Exposure
+                        $riskScore = $info.RiskScore
+                        $html += "            <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
+
+                        # Toon MITRE ATT&CK technique (indien aanwezig)
+                        if ($info.MITRETechnique) {
+                            $mitre = $info.MITRETechnique
+                            $html += "            <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
+                        }
+
                         $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
                         $html += "            <p><strong>Description:</strong><br>$description</p>`n"
                         $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
@@ -807,21 +834,40 @@ function Export-ToHTML {
                         $description = $info.Description
                         $remediation = $info.Remediation -replace "`n", "<br>"
                         $references = $info.References
+                        $severity = $info.Severity
+                        $exploitability = $info.Exploitability
+                        $exposure = $info.Exposure
+                        $riskScore = $info.RiskScore
+                        $mitre = $info.MITRETechnique
                     } else {
                         $riskLevel = "Unknown"
                         $riskColor = "#6c757d"
                         $description = "No detailed information available."
                         $remediation = "Please consult documentation."
                         $references = "N/A"
+                        $severity = $null
+                        $exploitability = $null
+                        $exposure = $null
+                        $riskScore = $null
+                        $mitre = $null
                     }
 
                     $html += "<div style='margin-bottom: 25px; padding: 15px; background: #f9f9f9; border-left: 4px solid $riskColor; border-radius: 5px;'>`n"
                     $html += "    <h3 style='color: $riskColor; margin-bottom: 10px;'>$settingName</h3>`n"
                     $html += "    <p><strong>Current Value:</strong> $currentValue</p>`n"
                     $html += "    <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
+                    if ($riskScore) {
+                        $html += "    <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
+                    }
+                    if ($mitre) {
+                        $html += "    <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
+                    }
+                    $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
                     $html += "    <p><strong>Description:</strong><br>$description</p>`n"
+                    $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
                     $html += "    <p><strong>Remediation:</strong><br>$remediation</p>`n"
                     if ($references) {
+                        $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
                         $html += "    <p><strong>References:</strong><br>$references</p>`n"
                     }
                     $html += "</div>`n"
@@ -850,6 +896,7 @@ function Export-ToHTML {
                     $info = $checkInfo[$checkName]
                     if ($info) {
                         $riskLevel = $info.RiskLevel
+                        $riskScore = $info.RiskScore
                         # Badge kleur gebaseerd op risk level
                         $badgeClass = switch ($riskLevel) {
                             "Critical" { "badge-danger" }
@@ -858,7 +905,7 @@ function Export-ToHTML {
                             "Low" { "badge-success" }
                             default { "badge-warning" }
                         }
-                        $html += "<span class='badge $badgeClass'>$count found - $riskLevel Risk</span>`n"
+                        $html += "<span class='badge $badgeClass'>$count found - $riskLevel Risk (Score: $riskScore)</span>`n"
                     } else {
                         # Fallback als geen info beschikbaar
                         $badgeClass = if ($count -gt 10) { "badge-danger" } elseif ($count -gt 5) { "badge-warning" } else { "badge-warning" }
@@ -938,9 +985,30 @@ function Export-ToHTML {
                     $html += "        </div>`n"
                     $html += "        <div class='modal-body'>`n"
                     $html += "            <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
+
+                    # Toon risk score en breakdown
+                    if ($info) {
+                        $severity = $info.Severity
+                        $exploitability = $info.Exploitability
+                        $exposure = $info.Exposure
+                        $riskScore = $info.RiskScore
+                        $html += "            <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
+                    }
+
+                    # Toon MITRE ATT&CK technique (indien aanwezig)
+                    if ($info -and $info.MITRETechnique) {
+                        $mitre = $info.MITRETechnique
+                        $html += "            <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
+                    }
+
+                    $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
                     $html += "            <p><strong>Description:</strong><br>$description</p>`n"
+                    $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
                     $html += "            <p><strong>Remediation:</strong><br>$remediation</p>`n"
-                    $html += "            <p><strong>References:</strong><br>$references</p>`n"
+                    if ($references) {
+                        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+                        $html += "            <p><strong>References:</strong><br>$references</p>`n"
+                    }
                     $html += "        </div>`n"
                     $html += "    </div>`n"
                     $html += "</div>`n"
