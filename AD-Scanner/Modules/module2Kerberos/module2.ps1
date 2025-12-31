@@ -171,7 +171,7 @@ if ($issuesFixed) {
 
     $global:SilentScan = $false
 
-    Write-Host "✓ Re-scan completed with updated data!" -ForegroundColor Green
+    Write-Host "[SUCCESS] Re-scan completed with updated data!" -ForegroundColor Green
 }
 
 # Return results as hashtable

@@ -22,17 +22,17 @@ param(
 )
 
 Write-Host @"
-╔═══════════════════════════════════════════════════════╗
-║  Creating Vulnerable AD Test Environment             ║
-║  ⚠️  FOR TESTING ONLY - INTENTIONALLY INSECURE! ⚠️   ║
-╚═══════════════════════════════════════════════════════╝
+========================================================
+  Creating Vulnerable AD Test Environment
+  [!] FOR TESTING ONLY - INTENTIONALLY INSECURE! [!]
+========================================================
 "@ -ForegroundColor Red
 
 Import-Module ActiveDirectory
 
-# ═══════════════════════════════════════════════════════
+# ========================================================
 # PART 1: CREATE ORGANIZATIONAL UNITS
-# ═══════════════════════════════════════════════════════
+# ========================================================
 
 Write-Host "`n[1/7] Creating Organizational Units..." -ForegroundColor Cyan
 
@@ -50,7 +50,7 @@ foreach ($ou in $ous) {
         $ouPath = "OU=$($ou.Name),$DomainDN"
         if (-not (Get-ADOrganizationalUnit -Filter "DistinguishedName -eq '$ouPath'" -ErrorAction SilentlyContinue)) {
             New-ADOrganizationalUnit -Name $ou.Name -Path $DomainDN -Description $ou.Description -ProtectedFromAccidentalDeletion $false
-            Write-Host "  ✓ Created OU: $($ou.Name)" -ForegroundColor Green
+            Write-Host "  [OK] Created OU: $($ou.Name)" -ForegroundColor Green
         } else {
             Write-Host "  - OU already exists: $($ou.Name)" -ForegroundColor Gray
         }
@@ -60,9 +60,9 @@ foreach ($ou in $ous) {
     }
 }
 
-# ═══════════════════════════════════════════════════════
+# ========================================================
 # PART 2: CREATE TEST USERS
-# ═══════════════════════════════════════════════════════
+# ========================================================
 
 Write-Host "`n[2/7] Creating Test Users..." -ForegroundColor Cyan
 
@@ -115,7 +115,7 @@ foreach ($user in $testUsers) {
             }
             
             New-ADUser @params
-            Write-Host "  ✓ Created user: $($user.SamAccountName)" -ForegroundColor Green
+            Write-Host "  [OK]Created user: $($user.SamAccountName)" -ForegroundColor Green
         } else {
             Write-Host "  - User already exists: $($user.SamAccountName)" -ForegroundColor Gray
         }
@@ -125,9 +125,9 @@ foreach ($user in $testUsers) {
     }
 }
 
-# ═══════════════════════════════════════════════════════
+# ========================================================
 # PART 3: ADD USERS TO GROUPS
-# ═══════════════════════════════════════════════════════
+# ========================================================
 
 Write-Host "`n[3/7] Adding users to groups..." -ForegroundColor Cyan
 
@@ -136,7 +136,7 @@ $adminUsers = @("admin.old", "admin.weak", "admin.test")
 foreach ($admin in $adminUsers) {
     try {
         Add-ADGroupMember -Identity "Domain Admins" -Members $admin -ErrorAction Stop
-        Write-Host "  ✓ Added $admin to Domain Admins" -ForegroundColor Green
+        Write-Host "  [OK]Added $admin to Domain Admins" -ForegroundColor Green
     }
     catch {
         Write-Host "  - $admin already in Domain Admins or error" -ForegroundColor Gray
@@ -154,13 +154,13 @@ foreach ($group in $customGroups) {
     try {
         if (-not (Get-ADGroup -Filter "Name -eq '$($group.Name)'" -ErrorAction SilentlyContinue)) {
             New-ADGroup -Name $group.Name -GroupScope Global -Path "OU=TestUsers,$DomainDN" -Description $group.Description
-            Write-Host "  ✓ Created group: $($group.Name)" -ForegroundColor Green
+            Write-Host "  [OK]Created group: $($group.Name)" -ForegroundColor Green
         }
         
         foreach ($member in $group.Members) {
             try {
                 Add-ADGroupMember -Identity $group.Name -Members $member -ErrorAction SilentlyContinue
-                Write-Host "    ✓ Added $member to $($group.Name)" -ForegroundColor Green
+                Write-Host "    [OK]Added $member to $($group.Name)" -ForegroundColor Green
             } catch {}
         }
     }
@@ -169,9 +169,9 @@ foreach ($group in $customGroups) {
     }
 }
 
-# ═══════════════════════════════════════════════════════
+# ========================================================
 # PART 4: CREATE VULNERABLE FGPPs (BAD POLICIES)
-# ═══════════════════════════════════════════════════════
+# ========================================================
 
 Write-Host "`n[4/7] Creating VULNERABLE Fine-Grained Password Policies..." -ForegroundColor Cyan
 
@@ -223,11 +223,11 @@ foreach ($fgpp in $badFGPPs) {
             }
             
             New-ADFineGrainedPasswordPolicy @params
-            Write-Host "  ✓ Created BAD FGPP: $($fgpp.Name)" -ForegroundColor Yellow
+            Write-Host "  [OK]Created BAD FGPP: $($fgpp.Name)" -ForegroundColor Yellow
             
             # Apply to group
             Add-ADFineGrainedPasswordPolicySubject -Identity $fgpp.Name -Subjects $fgpp.ApplyTo
-            Write-Host "    → Applied to: $($fgpp.ApplyTo)" -ForegroundColor Gray
+            Write-Host "    ->Applied to: $($fgpp.ApplyTo)" -ForegroundColor Gray
         }
     }
     catch {
@@ -235,9 +235,9 @@ foreach ($fgpp in $badFGPPs) {
     }
 }
 
-# ═══════════════════════════════════════════════════════
+# ========================================================
 # PART 5: CREATE GOOD FGPPs (BEST PRACTICE)
-# ═══════════════════════════════════════════════════════
+# ========================================================
 
 Write-Host "`n[5/7] Creating GOOD Fine-Grained Password Policies..." -ForegroundColor Cyan
 
@@ -273,10 +273,10 @@ foreach ($fgpp in $goodFGPPs) {
                 -ReversibleEncryptionEnabled $false `
                 -Description $fgpp.Description
             
-            Write-Host "  ✓ Created GOOD FGPP: $($fgpp.Name)" -ForegroundColor Green
+            Write-Host "  [OK]Created GOOD FGPP: $($fgpp.Name)" -ForegroundColor Green
             
             Add-ADFineGrainedPasswordPolicySubject -Identity $fgpp.Name -Subjects $fgpp.ApplyTo
-            Write-Host "    → Applied to: $($fgpp.ApplyTo)" -ForegroundColor Gray
+            Write-Host "    ->Applied to: $($fgpp.ApplyTo)" -ForegroundColor Gray
         }
     }
     catch {
@@ -284,9 +284,9 @@ foreach ($fgpp in $goodFGPPs) {
     }
 }
 
-# ═══════════════════════════════════════════════════════
+# ========================================================
 # PART 6: MODIFY DEFAULT DOMAIN PASSWORD POLICY (WEAK!)
-# ═══════════════════════════════════════════════════════
+# ========================================================
 
 Write-Host "`n[6/7] Setting WEAK Default Domain Password Policy..." -ForegroundColor Cyan
 
@@ -303,15 +303,15 @@ try {
         -LockoutObservationWindow (New-TimeSpan -Minutes 30) `
         -ReversibleEncryptionEnabled $false
     
-    Write-Host "  ✓ Default Domain Policy set to WEAK settings (8 chars minimum)" -ForegroundColor Yellow
+    Write-Host "  [OK]Default Domain Policy set to WEAK settings (8 chars minimum)" -ForegroundColor Yellow
 }
 catch {
     Write-Warning "Could not modify default domain password policy: $_"
 }
 
-# ═══════════════════════════════════════════════════════
+# ========================================================
 # PART 7: CREATE ADDITIONAL GPOs WITH PASSWORD SETTINGS
-# ═══════════════════════════════════════════════════════
+# ========================================================
 
 Write-Host "`n[7/7] Creating additional GPOs with password policies (CONFLICT!)..." -ForegroundColor Cyan
 
@@ -327,8 +327,8 @@ foreach ($gpoData in $additionalGPOs) {
     try {
         if (-not (Get-GPO -Name $gpoData.Name -ErrorAction SilentlyContinue)) {
             $gpo = New-GPO -Name $gpoData.Name -Comment $gpoData.Comment
-            Write-Host "  ✓ Created GPO: $($gpoData.Name)" -ForegroundColor Yellow
-            Write-Host "    ⚠️  Manually configure password settings in this GPO via GPMC" -ForegroundColor Gray
+            Write-Host "  [OK]Created GPO: $($gpoData.Name)" -ForegroundColor Yellow
+            Write-Host "    [!] Manually configure password settings in this GPO via GPMC" -ForegroundColor Gray
         }
     }
     catch {
@@ -336,18 +336,18 @@ foreach ($gpoData in $additionalGPOs) {
     }
 }
 
-# ═══════════════════════════════════════════════════════
+# ========================================================
 # SUMMARY
-# ═══════════════════════════════════════════════════════
+# ========================================================
 
 Write-Host "`n" -NoNewline
 Write-Host @"
-╔═══════════════════════════════════════════════════════╗
-║  Vulnerable AD Environment Created!                   ║
-╚═══════════════════════════════════════════════════════╝
+========================================================
+  Vulnerable AD Environment Created!
+========================================================
 "@ -ForegroundColor Green
 
-Write-Host "`n📊 SUMMARY:" -ForegroundColor Cyan
+Write-Host "`n[SUMMARY]" -ForegroundColor Cyan
 Write-Host ""
 
 # Count objects
@@ -361,19 +361,19 @@ Write-Host "  Test Users: $userCount" -ForegroundColor White
 Write-Host "  FGPPs: $fgppCount (Mix of good and bad)" -ForegroundColor White
 Write-Host "  Domain Admins: $domainAdminsCount (some VULNERABLE!)" -ForegroundColor White
 
-Write-Host "`n🔴 VULNERABILITIES INTRODUCED:" -ForegroundColor Red
-Write-Host "  ✗ Domain Admins group has NO dedicated FGPP (uses weak domain default)" -ForegroundColor Yellow
-Write-Host "  ✗ Enterprise Admins has NO FGPP" -ForegroundColor Yellow
-Write-Host "  ✗ admin.old has PasswordNeverExpires enabled" -ForegroundColor Yellow
-Write-Host "  ✗ Finance-Users FGPP: Only 6 chars, no complexity, no lockout!" -ForegroundColor Yellow
-Write-Host "  ✗ Service-Accounts FGPP: Reversible encryption ENABLED!" -ForegroundColor Yellow
-Write-Host "  ✗ Default Domain Policy: Only 8 char minimum" -ForegroundColor Yellow
-Write-Host "  ✗ Multiple GPOs may have conflicting password policies" -ForegroundColor Yellow
+Write-Host "`n VULNERABILITIES INTRODUCED:" -ForegroundColor Red
+Write-Host "  [WARN] Domain Admins group has NO dedicated FGPP (uses weak domain default)" -ForegroundColor Yellow
+Write-Host "  [WARN] Enterprise Admins has NO FGPP" -ForegroundColor Yellow
+Write-Host "  [WARN] admin.old has PasswordNeverExpires enabled" -ForegroundColor Yellow
+Write-Host "  [WARN] Finance-Users FGPP: Only 6 chars, no complexity, no lockout!" -ForegroundColor Yellow
+Write-Host "  [WARN] Service-Accounts FGPP: Reversible encryption ENABLED!" -ForegroundColor Yellow
+Write-Host "  [WARN] Default Domain Policy: Only 8 char minimum" -ForegroundColor Yellow
+Write-Host "  [WARN] Multiple GPOs may have conflicting password policies" -ForegroundColor Yellow
 
-Write-Host "`n✅ GOOD CONFIGURATIONS:" -ForegroundColor Green
-Write-Host "  ✓ IT-Support has strong FGPP (14 chars, proper settings)" -ForegroundColor Green
+Write-Host "`n GOOD CONFIGURATIONS:" -ForegroundColor Green
+Write-Host "  [OK] IT-Support has strong FGPP (14 chars, proper settings)" -ForegroundColor Green
 
-Write-Host "`n🎯 TEST YOUR SCANNER:" -ForegroundColor Cyan
+Write-Host "`n TEST YOUR SCANNER:" -ForegroundColor Cyan
 Write-Host @"
 Your scanner should detect:
 1. Domain Admins without FGPP (HIGH severity)
@@ -384,7 +384,7 @@ Your scanner should detect:
 6. Multiple GPOs with password policies (MEDIUM severity)
 "@
 
-Write-Host "`n📝 VERIFICATION COMMANDS:" -ForegroundColor Cyan
+Write-Host "`n VERIFICATION COMMANDS:" -ForegroundColor Cyan
 Write-Host @"
 # Check default policy
 Get-ADDefaultDomainPasswordPolicy
@@ -404,4 +404,4 @@ Get-ADUserResultantPasswordPolicy -Identity "dave.it"
 Get-ADUser admin.old -Properties PasswordNeverExpires
 "@
 
-Write-Host "`n✅ Setup complete! Ready for scanning!" -ForegroundColor Green
+Write-Host "YES Setup complete! Ready for scanning!" -ForegroundColor Green

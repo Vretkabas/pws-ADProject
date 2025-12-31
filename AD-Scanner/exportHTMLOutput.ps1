@@ -492,7 +492,7 @@ function Export-ToHTML {
         $stats = $moduleStats[$moduleName]
         $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
         $riskClass = $stats.HighestRisk.ToLower()
-        $icon = if ($moduleName -match "Password") { "🔑" } elseif ($moduleName -match "Module 3") { "🔐" } elseif ($moduleName -match "Module 4") { "🔒" } else { "⚠️" }
+        $icon = if ($moduleName -match "Password") { "&#128273;" } elseif ($moduleName -match "Module 3") { "&#128272;" } elseif ($moduleName -match "Module 4") { "&#128274;" } else { "&#9888;" }
 
         $dashboardCards += @"
         <div class="dashboard-card $riskClass" onclick="showView('$moduleId')">
@@ -532,7 +532,7 @@ function Export-ToHTML {
         }
         $dashboardCards += @"
             </div>
-            <div class="card-footer">Click to view details →</div>
+            <div class="card-footer">Click to view details &#8594;</div>
         </div>
 
 "@
@@ -547,7 +547,7 @@ function Export-ToHTML {
         $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
 
         $html += "<div id='view-$moduleId' class='view-section'>`n"
-        $html += "<button class='back-button' onclick='showDashboard()'>← Back to Dashboard</button>`n"
+        $html += "<button class='back-button' onclick='showDashboard()'>&#8592; Back to Dashboard</button>`n"
         $html += "<div class='module'>`n"
         $html += "<h2 class='module-title'>$moduleName</h2>`n"
 
@@ -565,7 +565,7 @@ function Export-ToHTML {
             if ($isModule4) {
                 $html += @"
 <div style='background: #fff3cd; border-left: 5px solid #ffc107; padding: 20px; margin-bottom: 25px; border-radius: 5px;'>
-    <h3 style='color: #856404; margin: 0 0 10px 0;'>ℹ️ Belangrijk: ACL Audit Overzicht</h3>
+    <h3 style='color: #856404; margin: 0 0 10px 0;'>&#9432; Belangrijk: ACL Audit Overzicht</h3>
     <p style='margin: 0; color: #856404; line-height: 1.6;'>
         <strong>Dit zijn niet persé security issues</strong>, maar een overzicht van wie welke ACL rechten heeft op gevoelige objecten
         zoals AdminSDHolder, Domain Object, privileged groups, GPOs, privileged users en OUs.<br><br>

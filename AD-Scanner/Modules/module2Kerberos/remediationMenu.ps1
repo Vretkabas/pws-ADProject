@@ -107,7 +107,7 @@ while ($true) {
 
         if ($fixedIssues.ContainsKey($key)) {
             # Issue was fixed - show as completed
-            Write-Host "$key. $($issue.Name): ✓ FIXED" -ForegroundColor Green
+            Write-Host "$key. $($issue.Name): [FIXED]" -ForegroundColor Green
         } else {
             # Issue not yet fixed - show count
             $count = if ($issue.Accounts) { ($issue.Accounts | Measure-Object).Count } else { 0 }
@@ -120,7 +120,7 @@ while ($true) {
 
     # If all issues are fixed, auto-exit
     if (-not $hasUnfixedIssues) {
-        Write-Host "`n✓ All fixable issues have been resolved!" -ForegroundColor Green
+        Write-Host "`n[SUCCESS] All fixable issues have been resolved!" -ForegroundColor Green
         break
     }
 
@@ -166,7 +166,7 @@ while ($true) {
             # Mark this issue as fixed
             $fixedIssues[$selection] = $true
 
-            Write-Host "`n✓ Fix completed!" -ForegroundColor Green
+            Write-Host "`n[SUCCESS] Fix completed!" -ForegroundColor Green
             Write-Host "Returning to menu...`n" -ForegroundColor Cyan
             Start-Sleep -Seconds 1
         }

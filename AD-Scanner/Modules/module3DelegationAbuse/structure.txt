@@ -46,3 +46,12 @@ Delegation Audit Report
     └── [gMSA findings]
 
 
+
+MUST HAVE (voor afronding)
+1.	✅ Comment-Based Help toevoegen aan alle functies
+2.	✅ Logging systeem implementeren
+3.	✅ Config.json voor configureerbare settings
+4.	✅ Basic Pester tests (minimaal smoke tests)
+SHOULD HAVE (voor extra punten)
+6.	✅ README.md met installatie/usage instructies
+7.	✅ Error handling verbeteren (try-catch-finally)

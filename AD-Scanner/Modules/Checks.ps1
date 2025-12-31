@@ -182,30 +182,38 @@ function Test-ADWebServices {
 function Test-RSATInstalled {
     param([switch]$Quiet)
 
-    # Check voor Windows Features (RSAT)
-    $rsatFeatures = @(
-        "RSAT-AD-PowerShell",
-        "RSAT-AD-Tools"
-    )
+    # Check of de ActiveDirectory module beschikbaar is - dit is de beste indicator voor RSAT
+    # Anders checken we voor Windows Capabilities
+    $adModuleAvailable = Get-Module -ListAvailable -Name ActiveDirectory -ErrorAction SilentlyContinue
 
-    $passed = $true
-    $installedFeatures = @()
-
-    foreach ($feature in $rsatFeatures) {
-        $installed = Get-WindowsCapability -Online -Name "*$feature*" -ErrorAction SilentlyContinue |
-                     Where-Object { $_.State -eq "Installed" }
-
-        if ($installed) {
-            $installedFeatures += $feature
-        } else {
-            $passed = $false
-        }
-    }
-
-    $message = if ($passed) {
-        "RSAT geïnstalleerd"
+    if ($adModuleAvailable) {
+        # AD module is beschikbaar, dus RSAT is correct geïnstalleerd
+        $passed = $true
+        $message = "RSAT geïnstalleerd (ActiveDirectory module beschikbaar)"
     } else {
-        "RSAT ontbreekt - installeer met: Add-WindowsCapability -Online -Name 'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0'"
+        # Fallback: Check voor Windows Capabilities
+        $rsatCapabilities = @(
+            "Rsat.ActiveDirectory.DS-LDS.Tools*",
+            "RSAT-AD-PowerShell*",
+            "RSAT-AD-Tools*"
+        )
+
+        $passed = $false
+        foreach ($capability in $rsatCapabilities) {
+            $installed = Get-WindowsCapability -Online -Name $capability -ErrorAction SilentlyContinue |
+                         Where-Object { $_.State -eq "Installed" }
+
+            if ($installed) {
+                $passed = $true
+                break
+            }
+        }
+
+        $message = if ($passed) {
+            "RSAT geïnstalleerd"
+        } else {
+            "RSAT ontbreekt - installeer met: Add-WindowsCapability -Online -Name 'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0'"
+        }
     }
 
     if (-not $Quiet) {

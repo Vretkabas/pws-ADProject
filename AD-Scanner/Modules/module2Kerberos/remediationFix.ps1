@@ -6,7 +6,7 @@ function Set-PasswordNeverExpiresFix {
     param([Object[]]$Accounts)
     foreach ($account in $Accounts) {
         Set-ADUser -Identity $account.SamAccountName -PasswordNeverExpires $false
-        Write-Host "  ✓ Fixed: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -15,7 +15,7 @@ function Set-PasswordNotRequiredFix {
     param([Object[]]$Accounts)
     foreach ($account in $Accounts) {
         Set-ADUser -Identity $account.SamAccountName -PasswordNotRequired $false
-        Write-Host "  ✓ Fixed: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -24,7 +24,7 @@ function Set-CannotChangePasswordFix {
     param([Object[]]$Accounts)
     foreach ($account in $Accounts) {
         Set-ADAccountControl -Identity $account.SamAccountName -CannotChangePassword $false
-        Write-Host "  ✓ Fixed: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -33,7 +33,7 @@ function Set-UseDESKeyOnlyFix {
     param([Object[]]$Accounts)
     foreach ($account in $Accounts) {
         Set-ADAccountControl -Identity $account.SamAccountName -UseDESKeyOnly $false
-        Write-Host "  ✓ Fixed: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -42,7 +42,7 @@ function Set-ReversiblePasswordEncryptionFix {
     param([Object[]]$Accounts)
     foreach ($account in $Accounts) {
         Set-ADUser -Identity $account.SamAccountName -AllowReversiblePasswordEncryption $false
-        Write-Host "  ✓ Fixed: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -51,7 +51,7 @@ function Set-RequirePreAuthFix {
     param([Object[]]$Accounts)
     foreach ($account in $Accounts) {
         Set-ADAccountControl -Identity $account.SamAccountName -DoesNotRequirePreAuth $false
-        Write-Host "  ✓ Fixed: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -61,7 +61,7 @@ function Set-TrustedForDelegationFix {
     Write-Host "  WARNING: Disabling delegation may break services!" -ForegroundColor Yellow
     foreach ($account in $Accounts) {
         Set-ADAccountControl -Identity $account.SamAccountName -TrustedForDelegation $false
-        Write-Host "  ✓ Fixed: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -74,7 +74,7 @@ function Set-TrustedToAuthForDelegationFix {
         Set-ADUser -Identity $account.SamAccountName -Clear 'msDS-AllowedToDelegateTo'
         # Then disable the account control flag
         Set-ADAccountControl -Identity $account.SamAccountName -TrustedToAuthForDelegation $false
-        Write-Host "  ✓ Fixed: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -84,7 +84,7 @@ function Disable-SPNAccountsFix {
     Write-Host "  WARNING: This will disable the accounts!" -ForegroundColor Yellow
     foreach ($account in $Accounts) {
         Disable-ADAccount -Identity $account.SamAccountName
-        Write-Host "  ✓ Disabled: $($account.SamAccountName)" -ForegroundColor Green
+        Write-Host "  [OK] Disabled: $($account.SamAccountName)" -ForegroundColor Green
     }
 }
 
@@ -96,7 +96,7 @@ function Set-EncryptionToAESFix {
     foreach ($account in $Accounts) {
         # Set msDS-SupportedEncryptionTypes to 24 (AES128-CTS-HMAC-SHA1-96 + AES256-CTS-HMAC-SHA1-96)
         Set-ADUser -Identity $account.SamAccountName -Replace @{'msDS-SupportedEncryptionTypes'=24}
-        Write-Host "  ✓ Fixed: $($account.SamAccountName) - Encryption set to AES128+AES256" -ForegroundColor Green
+        Write-Host "  [OK] Fixed: $($account.SamAccountName) - Encryption set to AES128+AES256" -ForegroundColor Green
     }
 }
 
