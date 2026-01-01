@@ -668,7 +668,16 @@ function Get-DashboardCards {
     try {
         $dashboardCards = ""
 
-        foreach ($moduleName in $Results.Keys) {
+        # Sort modules by name to ensure consistent order (Module 1, Module 2, Module 3, Module 4)
+        $sortedModules = $Results.Keys | Sort-Object {
+            if ($_ -match "Module (\d+)") {
+                [int]$matches[1]
+            } else {
+                999  # Put non-numbered modules at the end
+            }
+        }
+
+        foreach ($moduleName in $sortedModules) {
             $stats = $ModuleStats[$moduleName]
             if (-not $stats) {
                 Write-Verbose "No stats found for module: $moduleName"
@@ -763,7 +772,16 @@ function Get-DetailViews {
     try {
         $html = ""
 
-        foreach ($moduleName in $Results.Keys) {
+        # Sort modules by name to ensure consistent order (Module 1, Module 2, Module 3, Module 4)
+        $sortedModules = $Results.Keys | Sort-Object {
+            if ($_ -match "Module (\d+)") {
+                [int]$matches[1]
+            } else {
+                999  # Put non-numbered modules at the end
+            }
+        }
+
+        foreach ($moduleName in $sortedModules) {
             $moduleData = $Results[$moduleName]
             $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
 
@@ -978,7 +996,7 @@ function Get-IssueHTML {
         $html = "<div class='check' style='margin: 15px 0; background: #f9f9f9;'>`n"
         $html += "<div class='check-header' onclick='toggleCheck(""$issueId"")'>`n"
         $html += "<div class='check-title-left'>`n"
-        $html += "<span class='collapse-icon'>▼</span>`n"
+        $html += "<span class='collapse-icon' style='transform: rotate(-90deg);'>&#9660;</span>`n"
         $html += "<span class='check-title-text'>$IssueName</span>`n"
 
         # Check if issueData exists and has items (handle both single object and arrays)
@@ -1028,8 +1046,8 @@ function Get-IssueHTML {
 
         $html += "</div>`n" # close check-header
 
-        # Collapsible content: Accounts table
-        $html += "<div id='$issueId' class='check-content'>`n"
+        # Collapsible content: Accounts table (starts collapsed)
+        $html += "<div id='$issueId' class='check-content' style='display: none;'>`n"
 
         if ($hasData) {
             # Ensure issueData is always treated as an array
@@ -1145,7 +1163,7 @@ function Get-PasswordPolicyHTML {
         $html = "<div class='check'>`n"
         $html += "<div class='check-header' onclick='toggleCheck(""$CheckId"")'>`n"
         $html += "<div class='check-title-left'>`n"
-        $html += "<span class='collapse-icon'>▼</span>`n"
+        $html += "<span class='collapse-icon' style='transform: rotate(-90deg);'>&#9660;</span>`n"
         $html += "<span class='check-title-text'>$CheckName</span>`n"
 
         # Badge with user count for password policies
@@ -1164,8 +1182,8 @@ function Get-PasswordPolicyHTML {
 
         $html += "</div>`n" # close check-header
 
-        # Collapsible content: Users table
-        $html += "<div id='$CheckId' class='check-content'>`n"
+        # Collapsible content: Users table (starts collapsed)
+        $html += "<div id='$CheckId' class='check-content' style='display: none;'>`n"
         $html += "<p style='margin-bottom: 10px;'><strong>Affected Users:</strong> $userCount user(s)</p>`n"
 
         if ($users -and $users.Count -gt 0) {
@@ -1237,7 +1255,7 @@ function Get-RegularCheckHTML {
         $html = "<div class='check'>`n"
         $html += "<div class='check-header' onclick='toggleCheck(""$CheckId"")'>`n"
         $html += "<div class='check-title-left'>`n"
-        $html += "<span class='collapse-icon'>▼</span>`n"
+        $html += "<span class='collapse-icon' style='transform: rotate(-90deg);'>&#9660;</span>`n"
         $html += "<span class='check-title-text'>$CheckName</span>`n"
 
         if ($accounts -and $accounts.Count -gt 0) {
@@ -1277,8 +1295,8 @@ function Get-RegularCheckHTML {
 
         $html += "</div>`n" # close check-header
 
-        # Check content
-        $html += "<div id='$CheckId' class='check-content'>`n"
+        # Check content (starts collapsed)
+        $html += "<div id='$CheckId' class='check-content' style='display: none;'>`n"
 
         if ($accounts -and $accounts.Count -gt 0) {
             # Create table with accounts
@@ -1393,7 +1411,7 @@ function Get-ModalHTML {
 
         # Show risk score and breakdown
         if ($riskScore) {
-            $html += "            <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
+            $html += "            <p><strong>Risk Score:</strong> $riskScore (Severity: $severity &times; Exploitability: $exploitability &times; Exposure: $exposure)</p>`n"
         }
 
         # Show MITRE ATT&CK technique (if present)
@@ -1521,7 +1539,7 @@ function Get-PasswordPolicyModalHTML {
             $html += "    <p><strong>Current Value:</strong> $currentValue</p>`n"
             $html += "    <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
             if ($riskScore) {
-                $html += "    <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
+                $html += "    <p><strong>Risk Score:</strong> $riskScore (Severity: $severity &times; Exploitability: $exploitability &times; Exposure: $exposure)</p>`n"
             }
             if ($mitre) {
                 $html += "    <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
@@ -1601,8 +1619,17 @@ function Get-HTMLFooter {
 
         // Toggle collapse of check sections
         function toggleCheck(checkId) {
-            const checkElement = document.getElementById(checkId).parentElement;
-            checkElement.classList.toggle('collapsed');
+            const contentElement = document.getElementById(checkId);
+            const checkElement = contentElement.parentElement;
+            const icon = checkElement.querySelector('.collapse-icon');
+
+            if (contentElement.style.display === 'none') {
+                contentElement.style.display = 'block';
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                contentElement.style.display = 'none';
+                icon.style.transform = 'rotate(-90deg)';
+            }
         }
 
         // Open modal
@@ -1628,15 +1655,21 @@ function Get-HTMLFooter {
 
         // Collapse all functionality
         function collapseAll() {
-            document.querySelectorAll('.check').forEach(check => {
-                check.classList.add('collapsed');
+            document.querySelectorAll('.check-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.querySelectorAll('.collapse-icon').forEach(icon => {
+                icon.style.transform = 'rotate(-90deg)';
             });
         }
 
         // Expand all functionality
         function expandAll() {
-            document.querySelectorAll('.check').forEach(check => {
-                check.classList.remove('collapsed');
+            document.querySelectorAll('.check-content').forEach(content => {
+                content.style.display = 'block';
+            });
+            document.querySelectorAll('.collapse-icon').forEach(icon => {
+                icon.style.transform = 'rotate(0deg)';
             });
         }
     </script>
