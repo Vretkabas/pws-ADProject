@@ -857,6 +857,7 @@ This project was developed with assistance from **Claude AI (Anthropic)** for:
 - Risk scoring implementation in `checkInfo.ps1`
 - HTML report generation and JavaScript interactivity in `exportHTMLOutput.ps1`
 - Code optimization and PowerShell best practices
+- Comment-Based help in every file
 
 ### Security Frameworks & Methodologies
 - **OWASP Risk Rating Methodology** - Risk scoring calculation framework

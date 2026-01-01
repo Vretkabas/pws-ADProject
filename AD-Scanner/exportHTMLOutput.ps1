@@ -1,18 +1,113 @@
+<#
+.SYNOPSIS
+    HTML report export functions for AD Security Scanner
+
+.DESCRIPTION
+    Contains functions to export scan results to a comprehensive HTML report.
+    Includes parameter validation and comprehensive error handling.
+
+#>
+
+#region Main Export Function
+
+<#
+.SYNOPSIS
+    Exports scan results to a formatted HTML report
+.PARAMETER Results
+    Hashtable containing scan results from all modules
+.PARAMETER OutputPath
+    Path where the HTML report will be saved (default: "AD-Security-Report.html")
+.EXAMPLE
+    Export-ToHTML -Results $scanResults -OutputPath "C:\Reports\AD-Report.html"
+#>
 function Export-ToHTML {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
         [hashtable]$Results,
 
+        [Parameter(Mandatory = $false)]
+        [ValidateNotNullOrEmpty()]
         [string]$OutputPath = "AD-Security-Report.html"
     )
 
-    # alle info over de checks
-    $checkInfo = & "$PSScriptRoot\checkInfo.ps1"
+    try {
+        # Load check information metadata
+        $checkInfo = & "$PSScriptRoot\checkInfo.ps1"
+        if (-not $checkInfo) {
+            Write-Warning "Could not load check information. Report will have limited details."
+            $checkInfo = @{}
+        }
 
-    # HTML / CSS template
-    $html = @"
+        # Generate HTML template with CSS styling
+        $html = Get-HTMLTemplate
+
+        # Pre-process: Calculate statistics per module
+        $moduleStats = Get-ModuleStatistics -Results $Results -CheckInfo $checkInfo
+
+        # Generate dashboard cards
+        $dashboardCards = Get-DashboardCards -Results $Results -ModuleStats $moduleStats
+
+        # Insert dashboard cards into HTML
+        $html = $html -replace "<!-- Dashboard cards will be inserted here -->", $dashboardCards
+
+        # Generate detail views for each module
+        $html += Get-DetailViews -Results $Results -CheckInfo $checkInfo
+
+        # Add footer with JavaScript
+        $html += Get-HTMLFooter -TotalChecks $moduleStats.TotalChecks -TotalIssues $moduleStats.TotalIssues
+
+        # Ensure output directory exists
+        $reportDir = Split-Path $OutputPath -Parent
+        if ($reportDir -and -not (Test-Path $reportDir)) {
+            try {
+                New-Item -ItemType Directory -Path $reportDir -Force -ErrorAction Stop | Out-Null
+            }
+            catch {
+                Write-Error "Failed to create report directory: $($_.Exception.Message)"
+                return
+            }
+        }
+
+        # Write to file
+        try {
+            $html | Out-File -FilePath $OutputPath -Encoding UTF8 -ErrorAction Stop
+        }
+        catch {
+            Write-Error "Failed to write HTML report: $($_.Exception.Message)"
+            return
+        }
+
+        Write-Host "`nHTML report successfully generated!" -ForegroundColor Green
+        Write-Host "Location: $OutputPath" -ForegroundColor Cyan
+    }
+    catch {
+        Write-Error "Failed to generate HTML report: $($_.Exception.Message)"
+    }
+}
+
+#endregion
+
+#region HTML Generation Helper Functions
+
+<#
+.SYNOPSIS
+    Generates the HTML template with CSS styling
+.OUTPUTS
+    String containing the HTML template
+#>
+function Get-HTMLTemplate {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+
+    try {
+        $currentDate = Get-Date -Format 'dd-MM-yyyy HH:mm:ss'
+
+        return @"
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,7 +117,7 @@ function Export-ToHTML {
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f5f5f5;
-            padding: 20px;§
+            padding: 20px;
             color: #333;
         }
         .container {
@@ -330,7 +425,7 @@ function Export-ToHTML {
     <div class="container">
         <div class="header">
             <h1>AD Security Report</h1>
-            <p>Generated: $(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')</p>
+            <p>Generated: $currentDate</p>
         </div>
         <div class="content">
             <!-- Dashboard View -->
@@ -343,158 +438,255 @@ function Export-ToHTML {
 
             <!-- Detail Views (hidden by default) -->
 "@
+    }
+    catch {
+        Write-Error "Failed to generate HTML template: $($_.Exception.Message)"
+        return ""
+    }
+}
 
-    # Pre-process: Calculate stats per module
-    $moduleStats = @{}
-    $totalIssues = 0
-    $totalChecks = 0
+<#
+.SYNOPSIS
+    Calculates statistics for all modules
+.PARAMETER Results
+    Scan results hashtable
+.PARAMETER CheckInfo
+    Check information metadata
+.OUTPUTS
+    Hashtable containing statistics per module
+#>
+function Get-ModuleStatistics {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Results,
 
-    foreach ($moduleName in $Results.Keys) {
-        $moduleData = $Results[$moduleName]
-        $moduleIssueCount = 0
-        $moduleCheckCount = 0
-        $highestModuleRisk = "Low"
-        $criticalCount = 0
-        $highCount = 0
-        $mediumCount = 0
-        $lowCount = 0
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo
+    )
 
-        foreach ($checkName in $moduleData.Keys) {
-            $data = $moduleData[$checkName]
+    try {
+        $moduleStats = @{}
+        $totalIssues = 0
+        $totalChecks = 0
 
-            # Check for Module 3 or Module 4 nested structure (hashtable containing hashtables)
-            $isModule3Nested = ($moduleName -match "Module 3" -and $data -is [hashtable])
-            $isModule4Nested = ($moduleName -match "Module 4" -and $data -is [hashtable])
+        foreach ($moduleName in $Results.Keys) {
+            $moduleData = $Results[$moduleName]
+            $moduleIssueCount = 0
+            $moduleCheckCount = 0
+            $highestModuleRisk = "Low"
+            $criticalCount = 0
+            $highCount = 0
+            $mediumCount = 0
+            $lowCount = 0
 
-            if ($isModule3Nested -or $isModule4Nested) {
-                # Module 3 or Module 4: Nested structure - loop through sub-categories
-                foreach ($subCheckName in $data.Keys) {
-                    $subData = $data[$subCheckName]
-                    $moduleCheckCount++
-                    $totalChecks++
+            foreach ($checkName in $moduleData.Keys) {
+                $data = $moduleData[$checkName]
 
-                    # Count accounts in this sub-check
-                    if ($subData -and $subData.Count -gt 0) {
-                        $count = ($subData | Measure-Object).Count
-                        $moduleIssueCount += $count
-                        $totalIssues += $count
+                # Check for Module 3 or Module 4 nested structure (hashtable containing hashtables)
+                $isModule3Nested = ($moduleName -match "Module 3" -and $data -is [hashtable])
+                $isModule4Nested = ($moduleName -match "Module 4" -and $data -is [hashtable])
 
-                        # Get risk level from checkInfo for this sub-check
-                        $info = $checkInfo[$subCheckName]
-                        if ($info) {
-                            $risk = $info.RiskLevel
-                            # Update highest risk level for the module
-                            if ($risk -eq "Critical" -and $highestModuleRisk -ne "Critical") {
-                                $highestModuleRisk = "Critical"
+                if ($isModule3Nested -or $isModule4Nested) {
+                    # Module 3 or Module 4: Nested structure - loop through sub-categories
+                    foreach ($subCheckName in $data.Keys) {
+                        $subData = $data[$subCheckName]
+                        $moduleCheckCount++
+                        $totalChecks++
+
+                        # Count accounts in this sub-check
+                        if ($subData -and $subData.Count -gt 0) {
+                            $count = ($subData | Measure-Object).Count
+                            $moduleIssueCount += $count
+                            $totalIssues += $count
+
+                            # Get risk level from checkInfo for this sub-check
+                            $info = $CheckInfo[$subCheckName]
+                            if ($info) {
+                                $risk = $info.RiskLevel
+
+                                # Update highest risk level for the module
+                                $highestModuleRisk = Update-HighestRiskLevel -CurrentHighest $highestModuleRisk -NewRisk $risk
+
+                                # All accounts in this check have the same severity
+                                switch ($risk) {
+                                    "Critical" { $criticalCount += $count }
+                                    "High" { $highCount += $count }
+                                    "Medium" { $mediumCount += $count }
+                                    "Low" { $lowCount += $count }
+                                }
                             }
-                            elseif ($risk -eq "High" -and $highestModuleRisk -notin @("Critical")) {
-                                $highestModuleRisk = "High"
-                            }
-                            elseif ($risk -eq "Medium" -and $highestModuleRisk -notin @("Critical", "High")) {
-                                $highestModuleRisk = "Medium"
-                            }
-
-                            # All accounts in this check have the same severity
-                            if ($risk -eq "Critical") { $criticalCount += $count }
-                            elseif ($risk -eq "High") { $highCount += $count }
-                            elseif ($risk -eq "Medium") { $mediumCount += $count }
-                            elseif ($risk -eq "Low") { $lowCount += $count }
-                        }
-                    }
-                }
-            }
-            else {
-                # Regular modules (Module 1 & 2)
-                $moduleCheckCount++
-                $totalChecks++
-
-                # Check if password policy or regular check
-                $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
-
-                if ($isPasswordPolicy) {
-                    # Password policy - count affected users, not number of settings
-                    $issues = $data.Issues
-                    $userCount = $data.AppliedUserCount
-                    $moduleIssueCount += $userCount
-                    $totalIssues += $userCount
-
-                    foreach ($issue in $issues) {
-                        $settingName = $issue.Setting
-                        $info = $checkInfo[$settingName]
-                        if ($info) {
-                            $risk = $info.RiskLevel
-                            # Update highest risk level for the module
-                            if ($risk -eq "Critical" -and $highestModuleRisk -ne "Critical") {
-                                $highestModuleRisk = "Critical"
-                            }
-                            elseif ($risk -eq "High" -and $highestModuleRisk -notin @("Critical")) {
-                                $highestModuleRisk = "High"
-                            }
-                            elseif ($risk -eq "Medium" -and $highestModuleRisk -notin @("Critical", "High")) {
-                                $highestModuleRisk = "Medium"
-                            }
-
-                            # Count each issue by severity
-                            if ($risk -eq "Critical") { $criticalCount++ }
-                            elseif ($risk -eq "High") { $highCount++ }
-                            elseif ($risk -eq "Medium") { $mediumCount++ }
-                            elseif ($risk -eq "Low") { $lowCount++ }
                         }
                     }
                 }
                 else {
-                    # Regular account check - each found account is an issue with same severity
-                    if ($data -and $data.Count -gt 0) {
-                        $count = ($data | Measure-Object).Count
-                        $moduleIssueCount += $count
-                        $totalIssues += $count
+                    # Regular modules (Module 1 & 2)
+                    $moduleCheckCount++
+                    $totalChecks++
 
-                        # Get risk level from checkInfo for this check type
-                        $info = $checkInfo[$checkName]
-                        if ($info) {
-                            $risk = $info.RiskLevel
-                            # Update highest risk level for the module
-                            if ($risk -eq "Critical" -and $highestModuleRisk -ne "Critical") {
-                                $highestModuleRisk = "Critical"
-                            }
-                            elseif ($risk -eq "High" -and $highestModuleRisk -notin @("Critical")) {
-                                $highestModuleRisk = "High"
-                            }
-                            elseif ($risk -eq "Medium" -and $highestModuleRisk -notin @("Critical", "High")) {
-                                $highestModuleRisk = "Medium"
-                            }
+                    # Check if password policy or regular check
+                    $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
 
-                            # All accounts in this check have the same severity
-                            if ($risk -eq "Critical") { $criticalCount += $count }
-                            elseif ($risk -eq "High") { $highCount += $count }
-                            elseif ($risk -eq "Medium") { $mediumCount += $count }
-                            elseif ($risk -eq "Low") { $lowCount += $count }
+                    if ($isPasswordPolicy) {
+                        # Password policy - count affected users, not number of settings
+                        $issues = $data.Issues
+                        $userCount = $data.AppliedUserCount
+                        $moduleIssueCount += $userCount
+                        $totalIssues += $userCount
+
+                        foreach ($issue in $issues) {
+                            $settingName = $issue.Setting
+                            $info = $CheckInfo[$settingName]
+                            if ($info) {
+                                $risk = $info.RiskLevel
+
+                                # Update highest risk level for the module
+                                $highestModuleRisk = Update-HighestRiskLevel -CurrentHighest $highestModuleRisk -NewRisk $risk
+
+                                # Count each issue by severity
+                                switch ($risk) {
+                                    "Critical" { $criticalCount++ }
+                                    "High" { $highCount++ }
+                                    "Medium" { $mediumCount++ }
+                                    "Low" { $lowCount++ }
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        # Regular account check - each found account is an issue with same severity
+                        if ($data -and $data.Count -gt 0) {
+                            $count = ($data | Measure-Object).Count
+                            $moduleIssueCount += $count
+                            $totalIssues += $count
+
+                            # Get risk level from checkInfo for this check type
+                            $info = $CheckInfo[$checkName]
+                            if ($info) {
+                                $risk = $info.RiskLevel
+
+                                # Update highest risk level for the module
+                                $highestModuleRisk = Update-HighestRiskLevel -CurrentHighest $highestModuleRisk -NewRisk $risk
+
+                                # All accounts in this check have the same severity
+                                switch ($risk) {
+                                    "Critical" { $criticalCount += $count }
+                                    "High" { $highCount += $count }
+                                    "Medium" { $mediumCount += $count }
+                                    "Low" { $lowCount += $count }
+                                }
+                            }
                         }
                     }
                 }
             }
+
+            $moduleStats[$moduleName] = @{
+                IssueCount   = $moduleIssueCount
+                CheckCount   = $moduleCheckCount
+                HighestRisk  = $highestModuleRisk
+                Critical     = $criticalCount
+                High         = $highCount
+                Medium       = $mediumCount
+                Low          = $lowCount
+            }
         }
 
-        $moduleStats[$moduleName] = @{
-            IssueCount = $moduleIssueCount
-            CheckCount = $moduleCheckCount
-            HighestRisk = $highestModuleRisk
-            Critical = $criticalCount
-            High = $highCount
-            Medium = $mediumCount
-            Low = $lowCount
+        # Add totals to stats
+        $moduleStats.TotalIssues = $totalIssues
+        $moduleStats.TotalChecks = $totalChecks
+
+        return $moduleStats
+    }
+    catch {
+        Write-Error "Failed to calculate module statistics: $($_.Exception.Message)"
+        return @{
+            TotalIssues = 0
+            TotalChecks = 0
         }
     }
+}
 
-    # Generate Dashboard Cards
-    $dashboardCards = ""
-    foreach ($moduleName in $Results.Keys) {
-        $stats = $moduleStats[$moduleName]
-        $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
-        $riskClass = $stats.HighestRisk.ToLower()
-        $icon = if ($moduleName -match "Password") { "&#128273;" } elseif ($moduleName -match "Module 3") { "&#128272;" } elseif ($moduleName -match "Module 4") { "&#128274;" } else { "&#9888;" }
+<#
+.SYNOPSIS
+    Updates the highest risk level based on new risk
+.PARAMETER CurrentHighest
+    Current highest risk level
+.PARAMETER NewRisk
+    New risk level to compare
+.OUTPUTS
+    Updated highest risk level
+#>
+function Update-HighestRiskLevel {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentHighest,
 
-        $dashboardCards += @"
+        [Parameter(Mandatory = $true)]
+        [string]$NewRisk
+    )
+
+    # Priority: Critical > High > Medium > Low
+    if ($NewRisk -eq "Critical") {
+        return "Critical"
+    }
+    elseif ($NewRisk -eq "High" -and $CurrentHighest -ne "Critical") {
+        return "High"
+    }
+    elseif ($NewRisk -eq "Medium" -and $CurrentHighest -notin @("Critical", "High")) {
+        return "Medium"
+    }
+    else {
+        return $CurrentHighest
+    }
+}
+
+<#
+.SYNOPSIS
+    Generates dashboard cards HTML
+.PARAMETER Results
+    Scan results hashtable
+.PARAMETER ModuleStats
+    Module statistics hashtable
+.OUTPUTS
+    String containing dashboard cards HTML
+#>
+function Get-DashboardCards {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Results,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ModuleStats
+    )
+
+    try {
+        $dashboardCards = ""
+
+        foreach ($moduleName in $Results.Keys) {
+            $stats = $ModuleStats[$moduleName]
+            if (-not $stats) {
+                Write-Verbose "No stats found for module: $moduleName"
+                continue
+            }
+
+            $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
+            $riskClass = $stats.HighestRisk.ToLower()
+
+            # Select icon based on module name
+            $icon = switch -Regex ($moduleName) {
+                "Password" { "&#128273;" }
+                "Module 3" { "&#128272;" }
+                "Module 4" { "&#128274;" }
+                default { "&#9888;" }
+            }
+
+            $dashboardCards += @"
         <div class="dashboard-card $riskClass" onclick="showView('$moduleId')">
             <div class="card-header">
                 <div class="card-title">$moduleName</div>
@@ -506,528 +698,883 @@ function Export-ToHTML {
                     <span class="stat-value $riskClass">$($stats.IssueCount)</span>
                 </div>
 "@
-        if ($stats.Critical -gt 0) {
-            $dashboardCards += @"
+            # Add severity breakdowns if present
+            if ($stats.Critical -gt 0) {
+                $dashboardCards += @"
                 <div class="stat-row">
                     <span class="stat-label">Critical</span>
                     <span class="stat-value critical">$($stats.Critical)</span>
                 </div>
 "@
-        }
-        if ($stats.High -gt 0) {
-            $dashboardCards += @"
+            }
+            if ($stats.High -gt 0) {
+                $dashboardCards += @"
                 <div class="stat-row">
                     <span class="stat-label">High</span>
                     <span class="stat-value high">$($stats.High)</span>
                 </div>
 "@
-        }
-        if ($stats.Medium -gt 0) {
-            $dashboardCards += @"
+            }
+            if ($stats.Medium -gt 0) {
+                $dashboardCards += @"
                 <div class="stat-row">
                     <span class="stat-label">Medium</span>
                     <span class="stat-value medium">$($stats.Medium)</span>
                 </div>
 "@
-        }
-        $dashboardCards += @"
+            }
+            $dashboardCards += @"
             </div>
             <div class="card-footer">Click to view details &#8594;</div>
         </div>
 
 "@
+        }
+
+        return $dashboardCards
     }
+    catch {
+        Write-Error "Failed to generate dashboard cards: $($_.Exception.Message)"
+        return ""
+    }
+}
 
-    # Insert dashboard cards into HTML
-    $html = $html -replace "<!-- Dashboard cards will be inserted here -->", $dashboardCards
+<#
+.SYNOPSIS
+    Generates detail view HTML for all modules
+.PARAMETER Results
+    Scan results hashtable
+.PARAMETER CheckInfo
+    Check information metadata
+.OUTPUTS
+    String containing detail views HTML
+#>
+function Get-DetailViews {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Results,
 
-    # Generate Detail Views
-    foreach ($moduleName in $Results.Keys) {
-        $moduleData = $Results[$moduleName]
-        $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo
+    )
 
-        $html += "<div id='view-$moduleId' class='view-section'>`n"
-        $html += "<button class='back-button' onclick='showDashboard()'>&#8592; Back to Dashboard</button>`n"
-        $html += "<div class='module'>`n"
-        $html += "<h2 class='module-title'>$moduleName</h2>`n"
+    try {
+        $html = ""
 
-        # Check if this is Module 3 or Module 4 with nested structure
-        $isModule3 = ($moduleName -match "Module 3")
-        $isModule4 = ($moduleName -match "Module 4")
+        foreach ($moduleName in $Results.Keys) {
+            $moduleData = $Results[$moduleName]
+            $moduleId = $moduleName -replace '[^a-zA-Z0-9]', ''
 
-        if ($isModule3 -or $isModule4) {
-            # === MODULE 3 or MODULE 4: 3-Laag structuur ===
-            # Laag 1: Module kaart (al op dashboard)
-            # Laag 2: Controle types (sub-kaarten) - we tonen deze nu
-            # Laag 3: Issues per object type binnen elke controle
+            $html += "<div id='view-$moduleId' class='view-section'>`n"
+            $html += "<button class='back-button' onclick='showDashboard()'>&#8592; Back to Dashboard</button>`n"
+            $html += "<div class='module'>`n"
+            $html += "<h2 class='module-title'>$moduleName</h2>`n"
 
-            # Module 4 disclaimer
-            if ($isModule4) {
-                $html += @"
+            # Check if this is Module 3 or Module 4 with nested structure
+            $isModule3 = ($moduleName -match "Module 3")
+            $isModule4 = ($moduleName -match "Module 4")
+
+            if ($isModule3 -or $isModule4) {
+                # Module 3 or 4: Nested structure (3-layer)
+                $html += Get-NestedModuleHTML -ModuleName $moduleName -ModuleData $moduleData -ModuleId $moduleId -CheckInfo $CheckInfo -IsModule4 $isModule4
+            }
+            else {
+                # Regular modules (Module 1 & 2)
+                $html += Get-RegularModuleHTML -ModuleName $moduleName -ModuleData $moduleData -ModuleId $moduleId -CheckInfo $CheckInfo
+            }
+
+            $html += "</div>`n" # close module
+            $html += "</div>`n" # close view-section
+        }
+
+        return $html
+    }
+    catch {
+        Write-Error "Failed to generate detail views: $($_.Exception.Message)"
+        return ""
+    }
+}
+
+<#
+.SYNOPSIS
+    Generates HTML for nested modules (Module 3 & 4)
+.PARAMETER ModuleName
+    Name of the module
+.PARAMETER ModuleData
+    Module data hashtable
+.PARAMETER ModuleId
+    Sanitized module ID
+.PARAMETER CheckInfo
+    Check information metadata
+.PARAMETER IsModule4
+    Whether this is Module 4 (for disclaimer)
+.OUTPUTS
+    String containing nested module HTML
+#>
+function Get-NestedModuleHTML {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModuleName,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ModuleData,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ModuleId,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo,
+
+        [Parameter(Mandatory = $false)]
+        [bool]$IsModule4 = $false
+    )
+
+    try {
+        $html = ""
+
+        # Module 4 disclaimer
+        if ($IsModule4) {
+            $html += @"
 <div style='background: #fff3cd; border-left: 5px solid #ffc107; padding: 20px; margin-bottom: 25px; border-radius: 5px;'>
-    <h3 style='color: #856404; margin: 0 0 10px 0;'>&#9432; Belangrijk: ACL Audit Overzicht</h3>
+    <h3 style='color: #856404; margin: 0 0 10px 0;'>&#9432; Important: ACL Audit Overview</h3>
     <p style='margin: 0; color: #856404; line-height: 1.6;'>
-        <strong>Dit zijn niet persé security issues</strong>, maar een overzicht van wie welke ACL rechten heeft op gevoelige objecten
-        zoals AdminSDHolder, Domain Object, privileged groups, GPOs, privileged users en OUs.<br><br>
-        <strong>Review elk resultaat</strong> om te bepalen of de ACL rechten legitiem zijn (bijv. een delegated admin)
-        of dat ze een security risk vormen (bijv. een gewone gebruiker met te veel rechten).
+        <strong>These are not necessarily security issues</strong>, but an overview of who has which ACL permissions on sensitive objects
+        such as AdminSDHolder, Domain Object, privileged groups, GPOs, privileged users, and OUs.<br><br>
+        <strong>Review each result</strong> to determine if the ACL permissions are legitimate (e.g., a delegated admin)
+        or if they pose a security risk (e.g., a regular user with excessive permissions).
     </p>
 </div>
 `n
 "@
+        }
+
+        foreach ($categoryName in $ModuleData.Keys) {
+            $categoryData = $ModuleData[$categoryName]
+            $categoryId = "$ModuleId-" + ($categoryName -replace '[^a-zA-Z0-9]', '')
+
+            # Render sub-card for this category
+            $html += "<div class='check' style='margin-bottom: 30px; background: #ffffff; border: 2px solid #667eea; padding: 25px;'>`n"
+            $html += "<h3 style='color: #667eea; margin-bottom: 20px; font-size: 1.5em;'>$categoryName</h3>`n"
+
+            # Loop through all issues within this category
+            foreach ($issueName in $categoryData.Keys) {
+                $issueData = $categoryData[$issueName]
+                $html += Get-IssueHTML -IssueName $issueName -IssueData $issueData -CategoryId $categoryId -CheckInfo $CheckInfo
             }
 
-            foreach ($categoryName in $moduleData.Keys) {
-                $categoryData = $moduleData[$categoryName]
-                $categoryId = "$moduleId-" + ($categoryName -replace '[^a-zA-Z0-9]', '')
+            $html += "</div>`n" # close category card
+        }
 
-                # Render sub-card voor deze categorie (bijv. "Unconstrained Delegation")
-                $html += "<div class='check' style='margin-bottom: 30px; background: #ffffff; border: 2px solid #667eea; padding: 25px;'>`n"
-                $html += "<h3 style='color: #667eea; margin-bottom: 20px; font-size: 1.5em;'>$categoryName</h3>`n"
+        return $html
+    }
+    catch {
+        Write-Error "Failed to generate nested module HTML: $($_.Exception.Message)"
+        return ""
+    }
+}
 
-                # Loop door alle issues binnen deze categorie
-                foreach ($issueName in $categoryData.Keys) {
-                    $issueData = $categoryData[$issueName]
-                    $issueId = "$categoryId-" + ($issueName -replace '[^a-zA-Z0-9]', '')
-                    $modalId = "modal-$issueId"
+<#
+.SYNOPSIS
+    Generates HTML for regular modules (Module 1 & 2)
+.PARAMETER ModuleName
+    Name of the module
+.PARAMETER ModuleData
+    Module data hashtable
+.PARAMETER ModuleId
+    Sanitized module ID
+.PARAMETER CheckInfo
+    Check information metadata
+.OUTPUTS
+    String containing regular module HTML
+#>
+function Get-RegularModuleHTML {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModuleName,
 
-                    # Render issue (bijv. "Users (CRITICAL)")
-                    $html += "<div class='check' style='margin: 15px 0; background: #f9f9f9;'>`n"
-                    $html += "<div class='check-header' onclick='toggleCheck(""$issueId"")'>`n"
-                    $html += "<div class='check-title-left'>`n"
-                    $html += "<span class='collapse-icon'>▼</span>`n"
-                    $html += "<span class='check-title-text'>$issueName</span>`n"
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ModuleData,
 
-                    # Check if issueData exists and has items (handle both single object and arrays)
-                    $hasData = $false
-                    $count = 0
-                    if ($issueData) {
-                        if ($issueData -is [Array]) {
-                            $count = $issueData.Count
-                            $hasData = $count -gt 0
-                        } else {
-                            # Single object
-                            $count = 1
-                            $hasData = $true
-                        }
-                    }
+        [Parameter(Mandatory = $true)]
+        [string]$ModuleId,
 
-                    if ($hasData) {
-                        $info = $checkInfo[$issueName]
-                        if ($info) {
-                            $riskLevel = $info.RiskLevel
-                            $riskScore = $info.RiskScore
-                            $badgeClass = switch ($riskLevel) {
-                                "Critical" { "badge-danger" }
-                                "High" { "badge-danger" }
-                                "Medium" { "badge-warning" }
-                                "Low" { "badge-success" }
-                                default { "badge-warning" }
-                            }
-                            $html += "<span class='badge $badgeClass'>$count account(s) - $riskLevel Risk (Score: $riskScore)</span>`n"
-                        } else {
-                            $badgeClass = "badge-warning"
-                            $html += "<span class='badge $badgeClass'>$count account(s)</span>`n"
-                        }
-                    } else {
-                        $html += "<span class='badge badge-success'>No issues found</span>`n"
-                    }
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo
+    )
 
-                    $html += "</div>`n" # close check-title-left
+    try {
+        $html = ""
+        $checkIndex = 0
 
-                    # More Info button
-                    if ($checkInfo[$issueName]) {
-                        $html += "<button class='btn-info' onclick='event.stopPropagation(); showModal(""$modalId"")'>More Info</button>`n"
-                    }
+        foreach ($checkName in $ModuleData.Keys) {
+            $data = $ModuleData[$checkName]
+            $checkId = "check-$ModuleId-$checkIndex"
+            $modalId = "modal-$checkId"
+            $checkIndex++
 
-                    $html += "</div>`n" # close check-header
+            # Check if this is a FGPP policy object or regular account array
+            $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
 
-                    # Collapsible content: Accounts tabel
-                    $html += "<div id='$issueId' class='check-content'>`n"
+            if ($isPasswordPolicy) {
+                # FGPP / Password Policy rendering
+                $html += Get-PasswordPolicyHTML -CheckName $checkName -Data $data -CheckId $checkId -ModalId $modalId -CheckInfo $CheckInfo
+            }
+            else {
+                # Regular account checks rendering
+                $html += Get-RegularCheckHTML -CheckName $checkName -Data $data -CheckId $checkId -ModalId $modalId -CheckInfo $CheckInfo
+            }
+        }
 
-                    if ($hasData) {
-                        # Ensure issueData is always treated as an array
-                        $dataArray = @()
-                        if ($issueData -is [Array]) {
-                            $dataArray = $issueData
-                        } else {
-                            $dataArray = @($issueData)
-                        }
+        return $html
+    }
+    catch {
+        Write-Error "Failed to generate regular module HTML: $($_.Exception.Message)"
+        return ""
+    }
+}
 
-                        # Get first object to determine properties
-                        $firstItem = $dataArray[0]
-                        $properties = $firstItem.PSObject.Properties.Name
+<#
+.SYNOPSIS
+    Generates HTML for an individual issue (Module 3/4)
+.PARAMETER IssueName
+    Name of the issue
+.PARAMETER IssueData
+    Issue data (array or single object)
+.PARAMETER CategoryId
+    Sanitized category ID
+.PARAMETER CheckInfo
+    Check information metadata
+.OUTPUTS
+    String containing issue HTML
+#>
+function Get-IssueHTML {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$IssueName,
 
-                        $html += "<table>`n<thead><tr>`n"
-                        foreach ($prop in $properties) {
-                            $html += "<th>$prop</th>`n"
-                        }
-                        $html += "</tr></thead>`n<tbody>`n"
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        $IssueData,
 
-                        foreach ($item in $dataArray) {
-                            $html += "<tr>`n"
-                            foreach ($prop in $properties) {
-                                $value = $item.$prop
-                                if ($null -eq $value) { $value = "" }
-                                $html += "<td>$value</td>`n"
-                            }
-                            $html += "</tr>`n"
-                        }
-                        $html += "</tbody></table>`n"
-                    } else {
-                        $html += "<p class='no-data'>No accounts found for this issue.</p>`n"
-                    }
+        [Parameter(Mandatory = $true)]
+        [string]$CategoryId,
 
-                    $html += "</div>`n" # close check-content
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo
+    )
 
-                    # Modal voor More Info
-                    if ($checkInfo[$issueName]) {
-                        $info = $checkInfo[$issueName]
-                        $riskLevel = $info.RiskLevel
-                        $riskColor = $info.RiskColor
-                        $description = $info.Description
-                        $remediation = $info.Remediation -replace "`n", "<br>"
-                        $references = $info.References
+    try {
+        $issueId = "$CategoryId-" + ($IssueName -replace '[^a-zA-Z0-9]', '')
+        $modalId = "modal-$issueId"
 
-                        $html += "<div id='$modalId' class='modal' onclick='closeModal(""$modalId"")'>`n"
-                        $html += "    <div class='modal-content' onclick='event.stopPropagation()'>`n"
-                        $html += "        <div class='modal-header'>`n"
-                        $html += "            <h2 class='modal-title'>$issueName</h2>`n"
-                        $html += "            <button class='close-modal' onclick='event.stopPropagation(); closeModal(""$modalId"")'>&times;</button>`n"
-                        $html += "        </div>`n"
-                        $html += "        <div class='modal-body'>`n"
-                        $html += "            <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
+        $html = "<div class='check' style='margin: 15px 0; background: #f9f9f9;'>`n"
+        $html += "<div class='check-header' onclick='toggleCheck(""$issueId"")'>`n"
+        $html += "<div class='check-title-left'>`n"
+        $html += "<span class='collapse-icon'>▼</span>`n"
+        $html += "<span class='check-title-text'>$IssueName</span>`n"
 
-                        # Toon risk score en breakdown
-                        $severity = $info.Severity
-                        $exploitability = $info.Exploitability
-                        $exposure = $info.Exposure
-                        $riskScore = $info.RiskScore
-                        $html += "            <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
+        # Check if issueData exists and has items (handle both single object and arrays)
+        $hasData = $false
+        $count = 0
+        if ($IssueData) {
+            if ($IssueData -is [Array]) {
+                $count = $IssueData.Count
+                $hasData = $count -gt 0
+            }
+            else {
+                # Single object
+                $count = 1
+                $hasData = $true
+            }
+        }
 
-                        # Toon MITRE ATT&CK technique (indien aanwezig)
-                        if ($info.MITRETechnique) {
-                            $mitre = $info.MITRETechnique
-                            $html += "            <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
-                        }
-
-                        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                        $html += "            <p><strong>Description:</strong><br>$description</p>`n"
-                        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                        $html += "            <p><strong>Remediation:</strong><br>$remediation</p>`n"
-                        if ($references) {
-                            $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                            $html += "            <p><strong>References:</strong><br><a href='$references' target='_blank'>$references</a></p>`n"
-                        }
-                        $html += "        </div>`n"
-                        $html += "    </div>`n"
-                        $html += "</div>`n"
-                    }
-
-                    $html += "</div>`n" # close issue check
+        # Add badge with count and risk level
+        if ($hasData) {
+            $info = $CheckInfo[$IssueName]
+            if ($info) {
+                $riskLevel = $info.RiskLevel
+                $riskScore = $info.RiskScore
+                $badgeClass = switch ($riskLevel) {
+                    "Critical" { "badge-danger" }
+                    "High" { "badge-danger" }
+                    "Medium" { "badge-warning" }
+                    "Low" { "badge-success" }
+                    default { "badge-warning" }
                 }
-
-                $html += "</div>`n" # close category card
+                $html += "<span class='badge $badgeClass'>$count account(s) - $riskLevel Risk (Score: $riskScore)</span>`n"
+            }
+            else {
+                $html += "<span class='badge badge-warning'>$count account(s)</span>`n"
             }
         }
         else {
-            # === REGULAR MODULES (Module 1 & 2) ===
-            # Loop door alle checks binnen de module
-            $checkIndex = 0
-            foreach ($checkName in $moduleData.Keys) {
-                $data = $moduleData[$checkName]
-                $checkId = "check-$($moduleName -replace '[^a-zA-Z0-9]', '')-$checkIndex"
-                $modalId = "modal-$checkId"
-                $checkIndex++
+            $html += "<span class='badge badge-success'>No issues found</span>`n"
+        }
 
-                # Check of dit een FGPP policy object is of gewone account array
-                $isPasswordPolicy = ($data -is [PSCustomObject] -and $data.PSObject.Properties.Name -contains 'PolicyType')
+        $html += "</div>`n" # close check-title-left
 
-                if ($isPasswordPolicy) {
-                # === FGPP / Password Policy rendering ===
-                $policyData = $data
-                $issues = $policyData.Issues
-                $users = $policyData.AppliedUsers
-                $userCount = $policyData.AppliedUserCount
+        # More Info button
+        if ($CheckInfo[$IssueName]) {
+            $html += "<button class='btn-info' onclick='event.stopPropagation(); showModal(""$modalId"")'>More Info</button>`n"
+        }
 
-                # Bepaal hoogste severity level van alle issues
-                $highestRisk = "Low"
-                $highestRiskColor = "#28a745"
+        $html += "</div>`n" # close check-header
 
-                foreach ($issue in $issues) {
-                    $settingName = $issue.Setting
-                    $info = $checkInfo[$settingName]
-                    if ($info) {
-                        $risk = $info.RiskLevel
-                        # Priority: Critical > High > Medium > Low
-                        if ($risk -eq "Critical" -and $highestRisk -ne "Critical") {
-                            $highestRisk = "Critical"
-                            $highestRiskColor = $info.RiskColor
-                        }
-                        elseif ($risk -eq "High" -and $highestRisk -notin @("Critical", "High")) {
-                            $highestRisk = "High"
-                            $highestRiskColor = $info.RiskColor
-                        }
-                        elseif ($risk -eq "Medium" -and $highestRisk -notin @("Critical", "High", "Medium")) {
-                            $highestRisk = "Medium"
-                            $highestRiskColor = $info.RiskColor
-                        }
-                    }
-                }
+        # Collapsible content: Accounts table
+        $html += "<div id='$issueId' class='check-content'>`n"
 
-                $html += "<div class='check'>`n"
-                $html += "<div class='check-header' onclick='toggleCheck(""$checkId"")'>`n"
-                $html += "<div class='check-title-left'>`n"
-                $html += "<span class='collapse-icon'>▼</span>`n"
-                $html += "<span class='check-title-text'>$checkName</span>`n"
-
-                # Badge met user count (niet issue count) voor password policies
-                $userCount = $data.AppliedUserCount
-                $badgeClass = if ($highestRisk -eq "Critical") { "badge-danger" } elseif ($highestRisk -eq "High") { "badge-danger" } elseif ($highestRisk -eq "Medium") { "badge-warning" } else { "badge-warning" }
-                $html += "<span class='badge $badgeClass'>$userCount user(s) affected - $highestRisk Risk</span>`n"
-
-                $html += "</div>`n" # close check-title-left
-
-                # More Info button
-                $html += "<button class='btn-info' onclick='event.stopPropagation(); showModal(""$modalId"")'>More Info</button>`n"
-
-                $html += "</div>`n" # close check-header
-
-                # Collapsible content: Users tabel
-                $html += "<div id='$checkId' class='check-content'>`n"
-                $html += "<p style='margin-bottom: 10px;'><strong>Affected Users:</strong> $userCount user(s)</p>`n"
-
-                if ($users -and $users.Count -gt 0) {
-                    $html += "<table>`n<thead><tr><th>Username</th></tr></thead>`n<tbody>`n"
-                    foreach ($user in $users) {
-                        $html += "<tr><td>$user</td></tr>`n"
-                    }
-                    $html += "</tbody></table>`n"
-                } else {
-                    $html += "<p class='no-data'>No users affected by this policy.</p>`n"
-                }
-
-                $html += "</div>`n" # close check-content
-
-                # Modal voor More Info: Toon alle policy issues met details
-                $html += "<div id='$modalId' class='modal' onclick='closeModal(""$modalId"")'>`n"
-                $html += "    <div class='modal-content' onclick='event.stopPropagation()'>`n"
-                $html += "        <div class='modal-header'>`n"
-                $html += "            <h2 class='modal-title'>$checkName - Policy Issues</h2>`n"
-                $html += "            <button class='close-modal' onclick='event.stopPropagation(); closeModal(""$modalId"")'>&times;</button>`n"
-                $html += "        </div>`n"
-                $html += "        <div class='modal-body'>`n"
-                $html += "            <p><strong>Highest Risk Level:</strong> <span style='color: $highestRiskColor; font-weight: bold;'>$highestRisk</span></p>`n"
-                $html += "            <p><strong>Total Issues:</strong> $issueCount</p>`n"
-                $html += "            <p><strong>Affected Users:</strong> $userCount</p>`n"
-                $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-
-                # Loop door alle issues en toon details
-                foreach ($issue in $issues) {
-                    $settingName = $issue.Setting
-                    $currentValue = $issue.CurrentValue
-                    $info = $checkInfo[$settingName]
-
-                    if ($info) {
-                        $riskLevel = $info.RiskLevel
-                        $riskColor = $info.RiskColor
-                        $description = $info.Description
-                        $remediation = $info.Remediation -replace "`n", "<br>"
-                        $references = $info.References
-                        $severity = $info.Severity
-                        $exploitability = $info.Exploitability
-                        $exposure = $info.Exposure
-                        $riskScore = $info.RiskScore
-                        $mitre = $info.MITRETechnique
-                    } else {
-                        $riskLevel = "Unknown"
-                        $riskColor = "#6c757d"
-                        $description = "No detailed information available."
-                        $remediation = "Please consult documentation."
-                        $references = "N/A"
-                        $severity = $null
-                        $exploitability = $null
-                        $exposure = $null
-                        $riskScore = $null
-                        $mitre = $null
-                    }
-
-                    $html += "<div style='margin-bottom: 25px; padding: 15px; background: #f9f9f9; border-left: 4px solid $riskColor; border-radius: 5px;'>`n"
-                    $html += "    <h3 style='color: $riskColor; margin-bottom: 10px;'>$settingName</h3>`n"
-                    $html += "    <p><strong>Current Value:</strong> $currentValue</p>`n"
-                    $html += "    <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
-                    if ($riskScore) {
-                        $html += "    <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
-                    }
-                    if ($mitre) {
-                        $html += "    <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
-                    }
-                    $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                    $html += "    <p><strong>Description:</strong><br>$description</p>`n"
-                    $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                    $html += "    <p><strong>Remediation:</strong><br>$remediation</p>`n"
-                    if ($references) {
-                        $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                        $html += "    <p><strong>References:</strong><br>$references</p>`n"
-                    }
-                    $html += "</div>`n"
-                }
-
-                $html += "        </div>`n"
-                $html += "    </div>`n"
-                $html += "</div>`n"
-
-                $html += "</div>`n" # close check
+        if ($hasData) {
+            # Ensure issueData is always treated as an array
+            $dataArray = @()
+            if ($IssueData -is [Array]) {
+                $dataArray = $IssueData
             }
             else {
-                # === Regular account checks rendering ===
-                $accounts = $data
+                $dataArray = @($IssueData)
+            }
 
-                $html += "<div class='check'>`n"
-                $html += "<div class='check-header' onclick='toggleCheck(""$checkId"")'>`n"
-                $html += "<div class='check-title-left'>`n"
-                $html += "<span class='collapse-icon'>▼</span>`n"
-                $html += "<span class='check-title-text'>$checkName</span>`n"
+            # Get first object to determine properties
+            $firstItem = $dataArray[0]
+            $properties = $firstItem.PSObject.Properties.Name
 
-                if ($accounts -and $accounts.Count -gt 0) {
-                    $count = ($accounts | Measure-Object).Count
+            $html += "<table>`n<thead><tr>`n"
+            foreach ($prop in $properties) {
+                $html += "<th>$prop</th>`n"
+            }
+            $html += "</tr></thead>`n<tbody>`n"
 
-                    # Haal risk level op voor deze check
-                    $info = $checkInfo[$checkName]
-                    if ($info) {
-                        $riskLevel = $info.RiskLevel
-                        $riskScore = $info.RiskScore
-                        # Badge kleur gebaseerd op risk level
-                        $badgeClass = switch ($riskLevel) {
-                            "Critical" { "badge-danger" }
-                            "High" { "badge-danger" }
-                            "Medium" { "badge-warning" }
-                            "Low" { "badge-success" }
-                            default { "badge-warning" }
-                        }
-                        $html += "<span class='badge $badgeClass'>$count found - $riskLevel Risk (Score: $riskScore)</span>`n"
-                    } else {
-                        # Fallback als geen info beschikbaar
-                        $badgeClass = if ($count -gt 10) { "badge-danger" } elseif ($count -gt 5) { "badge-warning" } else { "badge-warning" }
-                        $html += "<span class='badge $badgeClass'>$count found</span>`n"
-                    }
-                } else {
-                    $html += "<span class='badge badge-success'>0 found</span>`n"
+            foreach ($item in $dataArray) {
+                $html += "<tr>`n"
+                foreach ($prop in $properties) {
+                    $value = $item.$prop
+                    if ($null -eq $value) { $value = "" }
+                    $html += "<td>$value</td>`n"
                 }
+                $html += "</tr>`n"
+            }
+            $html += "</tbody></table>`n"
+        }
+        else {
+            $html += "<p class='no-data'>No accounts found for this issue.</p>`n"
+        }
 
-                $html += "</div>`n" # close check-title-left
+        $html += "</div>`n" # close check-content
 
-                # More Info button (alleen als er data is)
-                if ($accounts -and $accounts.Count -gt 0) {
-                    $html += "<button class='btn-info' onclick='event.stopPropagation(); showModal(""$modalId"")'>More Info</button>`n"
-                }
+        # Modal for More Info
+        if ($CheckInfo[$IssueName]) {
+            $html += Get-ModalHTML -ModalId $modalId -CheckName $IssueName -CheckInfo $CheckInfo
+        }
 
-                $html += "</div>`n" # close check-header
+        $html += "</div>`n" # close issue check
 
-                # gegevens van de check
-                $html += "<div id='$checkId' class='check-content'>`n"
+        return $html
+    }
+    catch {
+        Write-Error "Failed to generate issue HTML for '$IssueName': $($_.Exception.Message)"
+        return ""
+    }
+}
 
-                if ($accounts -and $accounts.Count -gt 0) {
-                    # Maak tabel met accounts
-                    $html += "<table>`n<thead><tr>"
+<#
+.SYNOPSIS
+    Generates HTML for password policy checks
+.PARAMETER CheckName
+    Name of the check
+.PARAMETER Data
+    Password policy data
+.PARAMETER CheckId
+    Sanitized check ID
+.PARAMETER ModalId
+    Modal ID
+.PARAMETER CheckInfo
+    Check information metadata
+.OUTPUTS
+    String containing password policy HTML
+#>
+function Get-PasswordPolicyHTML {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CheckName,
 
-                    # Dynamische kolommen obv properties
-                    $properties = $accounts[0].PSObject.Properties.Name
-                    foreach ($prop in $properties) {
-                        $html += "<th>$prop</th>"
-                    }
-                    $html += "</tr></thead>`n<tbody>`n"
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Data,
 
-                    # Rijen met data
-                    foreach ($account in $accounts) {
-                        $html += "<tr>"
-                        foreach ($prop in $properties) {
-                            $value = $account.$prop
-                            if ($value -is [DateTime]) {
-                                $value = $value.ToString('dd-MM-yyyy HH:mm:ss')
-                            }
-                            $html += "<td>$value</td>"
-                        }
-                        $html += "</tr>`n"
-                    }
-                    $html += "</tbody></table>`n"
-                } else {
-                    $html += "<p class='no-data'>No issues found for this check.</p>`n"
-                }
+        [Parameter(Mandatory = $true)]
+        [string]$CheckId,
 
-                $html += "</div>`n" # close check-content
+        [Parameter(Mandatory = $true)]
+        [string]$ModalId,
 
-                # Modal voor More Info (alleen als er data is)
-                if ($accounts -and $accounts.Count -gt 0) {
-                    # Haal check info op uit de checkInfo hashtable
-                    $info = $checkInfo[$checkName]
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo
+    )
 
-                    if ($info) {
-                        $riskLevel = $info.RiskLevel
-                        $riskColor = $info.RiskColor
-                        $description = $info.Description
-                        $remediation = $info.Remediation -replace "`n", "<br>"
-                        $references = $info.References
-                    } else {
-                        # Fallback als er geen info is voor deze check
-                        $riskLevel = "Unknown"
-                        $riskColor = "#6c757d"
-                        $description = "No detailed information available for this check yet."
-                        $remediation = "Please consult your security team or documentation."
-                        $references = "N/A"
-                    }
+    try {
+        $policyData = $Data
+        $issues = $policyData.Issues
+        $users = $policyData.AppliedUsers
+        $userCount = $policyData.AppliedUserCount
+        $issueCount = ($issues | Measure-Object).Count
 
-                    $html += "<div id='$modalId' class='modal' onclick='closeModal(""$modalId"")'>`n"
-                    $html += "    <div class='modal-content' onclick='event.stopPropagation()'>`n"
-                    $html += "        <div class='modal-header'>`n"
-                    $html += "            <h2 class='modal-title'>$checkName</h2>`n"
-                    $html += "            <button class='close-modal' onclick='event.stopPropagation(); closeModal(""$modalId"")'>&times;</button>`n"
-                    $html += "        </div>`n"
-                    $html += "        <div class='modal-body'>`n"
-                    $html += "            <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
+        # Determine highest severity level of all issues
+        $highestRisk = "Low"
+        $highestRiskColor = "#28a745"
 
-                    # Toon risk score en breakdown
-                    if ($info) {
-                        $severity = $info.Severity
-                        $exploitability = $info.Exploitability
-                        $exposure = $info.Exposure
-                        $riskScore = $info.RiskScore
-                        $html += "            <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
-                    }
-
-                    # Toon MITRE ATT&CK technique (indien aanwezig)
-                    if ($info -and $info.MITRETechnique) {
-                        $mitre = $info.MITRETechnique
-                        $html += "            <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
-                    }
-
-                    $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                    $html += "            <p><strong>Description:</strong><br>$description</p>`n"
-                    $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                    $html += "            <p><strong>Remediation:</strong><br>$remediation</p>`n"
-                    if ($references) {
-                        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
-                        $html += "            <p><strong>References:</strong><br>$references</p>`n"
-                    }
-                    $html += "        </div>`n"
-                    $html += "    </div>`n"
-                    $html += "</div>`n"
-                }
-
-                    $html += "</div>`n" # close check
+        foreach ($issue in $issues) {
+            $settingName = $issue.Setting
+            $info = $CheckInfo[$settingName]
+            if ($info) {
+                $risk = $info.RiskLevel
+                $highestRisk = Update-HighestRiskLevel -CurrentHighest $highestRisk -NewRisk $risk
+                if ($highestRisk -eq $risk) {
+                    $highestRiskColor = $info.RiskColor
                 }
             }
-        } # end else (regular modules)
+        }
 
-        $html += "</div>`n" # close module
-        $html += "</div>`n" # close view-section
+        $html = "<div class='check'>`n"
+        $html += "<div class='check-header' onclick='toggleCheck(""$CheckId"")'>`n"
+        $html += "<div class='check-title-left'>`n"
+        $html += "<span class='collapse-icon'>▼</span>`n"
+        $html += "<span class='check-title-text'>$CheckName</span>`n"
+
+        # Badge with user count for password policies
+        $badgeClass = switch ($highestRisk) {
+            "Critical" { "badge-danger" }
+            "High" { "badge-danger" }
+            "Medium" { "badge-warning" }
+            default { "badge-warning" }
+        }
+        $html += "<span class='badge $badgeClass'>$userCount user(s) affected - $highestRisk Risk</span>`n"
+
+        $html += "</div>`n" # close check-title-left
+
+        # More Info button
+        $html += "<button class='btn-info' onclick='event.stopPropagation(); showModal(""$ModalId"")'>More Info</button>`n"
+
+        $html += "</div>`n" # close check-header
+
+        # Collapsible content: Users table
+        $html += "<div id='$CheckId' class='check-content'>`n"
+        $html += "<p style='margin-bottom: 10px;'><strong>Affected Users:</strong> $userCount user(s)</p>`n"
+
+        if ($users -and $users.Count -gt 0) {
+            $html += "<table>`n<thead><tr><th>Username</th></tr></thead>`n<tbody>`n"
+            foreach ($user in $users) {
+                $html += "<tr><td>$user</td></tr>`n"
+            }
+            $html += "</tbody></table>`n"
+        }
+        else {
+            $html += "<p class='no-data'>No users affected by this policy.</p>`n"
+        }
+
+        $html += "</div>`n" # close check-content
+
+        # Modal for More Info: Show all policy issues with details
+        $html += Get-PasswordPolicyModalHTML -ModalId $ModalId -CheckName $CheckName -Issues $issues -UserCount $userCount -IssueCount $issueCount -HighestRisk $highestRisk -HighestRiskColor $highestRiskColor -CheckInfo $CheckInfo
+
+        $html += "</div>`n" # close check
+
+        return $html
     }
+    catch {
+        Write-Error "Failed to generate password policy HTML for '$CheckName': $($_.Exception.Message)"
+        return ""
+    }
+}
 
-    # Footer met JavaScript + popup
-    $html += @"
+<#
+.SYNOPSIS
+    Generates HTML for regular account checks
+.PARAMETER CheckName
+    Name of the check
+.PARAMETER Data
+    Check data (array of accounts)
+.PARAMETER CheckId
+    Sanitized check ID
+.PARAMETER ModalId
+    Modal ID
+.PARAMETER CheckInfo
+    Check information metadata
+.OUTPUTS
+    String containing regular check HTML
+#>
+function Get-RegularCheckHTML {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CheckName,
+
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        $Data,
+
+        [Parameter(Mandatory = $true)]
+        [string]$CheckId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ModalId,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo
+    )
+
+    try {
+        $accounts = $Data
+
+        $html = "<div class='check'>`n"
+        $html += "<div class='check-header' onclick='toggleCheck(""$CheckId"")'>`n"
+        $html += "<div class='check-title-left'>`n"
+        $html += "<span class='collapse-icon'>▼</span>`n"
+        $html += "<span class='check-title-text'>$CheckName</span>`n"
+
+        if ($accounts -and $accounts.Count -gt 0) {
+            $count = ($accounts | Measure-Object).Count
+
+            # Get risk level for this check
+            $info = $CheckInfo[$CheckName]
+            if ($info) {
+                $riskLevel = $info.RiskLevel
+                $riskScore = $info.RiskScore
+                # Badge color based on risk level
+                $badgeClass = switch ($riskLevel) {
+                    "Critical" { "badge-danger" }
+                    "High" { "badge-danger" }
+                    "Medium" { "badge-warning" }
+                    "Low" { "badge-success" }
+                    default { "badge-warning" }
+                }
+                $html += "<span class='badge $badgeClass'>$count found - $riskLevel Risk (Score: $riskScore)</span>`n"
+            }
+            else {
+                # Fallback if no info available
+                $badgeClass = if ($count -gt 10) { "badge-danger" } elseif ($count -gt 5) { "badge-warning" } else { "badge-warning" }
+                $html += "<span class='badge $badgeClass'>$count found</span>`n"
+            }
+        }
+        else {
+            $html += "<span class='badge badge-success'>0 found</span>`n"
+        }
+
+        $html += "</div>`n" # close check-title-left
+
+        # More Info button (only if there is data)
+        if ($accounts -and $accounts.Count -gt 0) {
+            $html += "<button class='btn-info' onclick='event.stopPropagation(); showModal(""$ModalId"")'>More Info</button>`n"
+        }
+
+        $html += "</div>`n" # close check-header
+
+        # Check content
+        $html += "<div id='$CheckId' class='check-content'>`n"
+
+        if ($accounts -and $accounts.Count -gt 0) {
+            # Create table with accounts
+            $html += "<table>`n<thead><tr>"
+
+            # Dynamic columns based on properties
+            $properties = $accounts[0].PSObject.Properties.Name
+            foreach ($prop in $properties) {
+                $html += "<th>$prop</th>"
+            }
+            $html += "</tr></thead>`n<tbody>`n"
+
+            # Rows with data
+            foreach ($account in $accounts) {
+                $html += "<tr>"
+                foreach ($prop in $properties) {
+                    $value = $account.$prop
+                    if ($value -is [DateTime]) {
+                        $value = $value.ToString('dd-MM-yyyy HH:mm:ss')
+                    }
+                    $html += "<td>$value</td>"
+                }
+                $html += "</tr>`n"
+            }
+            $html += "</tbody></table>`n"
+        }
+        else {
+            $html += "<p class='no-data'>No issues found for this check.</p>`n"
+        }
+
+        $html += "</div>`n" # close check-content
+
+        # Modal for More Info (only if there is data)
+        if ($accounts -and $accounts.Count -gt 0) {
+            $html += Get-ModalHTML -ModalId $ModalId -CheckName $CheckName -CheckInfo $CheckInfo
+        }
+
+        $html += "</div>`n" # close check
+
+        return $html
+    }
+    catch {
+        Write-Error "Failed to generate regular check HTML for '$CheckName': $($_.Exception.Message)"
+        return ""
+    }
+}
+
+<#
+.SYNOPSIS
+    Generates HTML for information modal
+.PARAMETER ModalId
+    Modal ID
+.PARAMETER CheckName
+    Name of the check
+.PARAMETER CheckInfo
+    Check information metadata
+.OUTPUTS
+    String containing modal HTML
+#>
+function Get-ModalHTML {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModalId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$CheckName,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo
+    )
+
+    try {
+        # Get check info from the checkInfo hashtable
+        $info = $CheckInfo[$CheckName]
+
+        if ($info) {
+            $riskLevel = $info.RiskLevel
+            $riskColor = $info.RiskColor
+            $description = $info.Description
+            $remediation = $info.Remediation -replace "`n", "<br>"
+            $references = $info.References
+            $severity = $info.Severity
+            $exploitability = $info.Exploitability
+            $exposure = $info.Exposure
+            $riskScore = $info.RiskScore
+            $mitre = $info.MITRETechnique
+        }
+        else {
+            # Fallback if there is no info for this check
+            $riskLevel = "Unknown"
+            $riskColor = "#6c757d"
+            $description = "No detailed information available for this check yet."
+            $remediation = "Please consult your security team or documentation."
+            $references = "N/A"
+            $severity = $null
+            $exploitability = $null
+            $exposure = $null
+            $riskScore = $null
+            $mitre = $null
+        }
+
+        $html = "<div id='$ModalId' class='modal' onclick='closeModal(""$ModalId"")'>`n"
+        $html += "    <div class='modal-content' onclick='event.stopPropagation()'>`n"
+        $html += "        <div class='modal-header'>`n"
+        $html += "            <h2 class='modal-title'>$CheckName</h2>`n"
+        $html += "            <button class='close-modal' onclick='event.stopPropagation(); closeModal(""$ModalId"")'>&times;</button>`n"
+        $html += "        </div>`n"
+        $html += "        <div class='modal-body'>`n"
+        $html += "            <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
+
+        # Show risk score and breakdown
+        if ($riskScore) {
+            $html += "            <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
+        }
+
+        # Show MITRE ATT&CK technique (if present)
+        if ($mitre) {
+            $html += "            <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
+        }
+
+        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+        $html += "            <p><strong>Description:</strong><br>$description</p>`n"
+        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+        $html += "            <p><strong>Remediation:</strong><br>$remediation</p>`n"
+        if ($references) {
+            $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+            $html += "            <p><strong>References:</strong><br>$references</p>`n"
+        }
+        $html += "        </div>`n"
+        $html += "    </div>`n"
+        $html += "</div>`n"
+
+        return $html
+    }
+    catch {
+        Write-Error "Failed to generate modal HTML for '$CheckName': $($_.Exception.Message)"
+        return ""
+    }
+}
+
+<#
+.SYNOPSIS
+    Generates HTML for password policy modal
+.PARAMETER ModalId
+    Modal ID
+.PARAMETER CheckName
+    Name of the check
+.PARAMETER Issues
+    Array of policy issues
+.PARAMETER UserCount
+    Number of affected users
+.PARAMETER IssueCount
+    Number of issues
+.PARAMETER HighestRisk
+    Highest risk level
+.PARAMETER HighestRiskColor
+    Color for highest risk level
+.PARAMETER CheckInfo
+    Check information metadata
+.OUTPUTS
+    String containing password policy modal HTML
+#>
+function Get-PasswordPolicyModalHTML {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModalId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$CheckName,
+
+        [Parameter(Mandatory = $true)]
+        [array]$Issues,
+
+        [Parameter(Mandatory = $true)]
+        [int]$UserCount,
+
+        [Parameter(Mandatory = $true)]
+        [int]$IssueCount,
+
+        [Parameter(Mandatory = $true)]
+        [string]$HighestRisk,
+
+        [Parameter(Mandatory = $true)]
+        [string]$HighestRiskColor,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$CheckInfo
+    )
+
+    try {
+        $html = "<div id='$ModalId' class='modal' onclick='closeModal(""$ModalId"")'>`n"
+        $html += "    <div class='modal-content' onclick='event.stopPropagation()'>`n"
+        $html += "        <div class='modal-header'>`n"
+        $html += "            <h2 class='modal-title'>$CheckName - Policy Issues</h2>`n"
+        $html += "            <button class='close-modal' onclick='event.stopPropagation(); closeModal(""$ModalId"")'>&times;</button>`n"
+        $html += "        </div>`n"
+        $html += "        <div class='modal-body'>`n"
+        $html += "            <p><strong>Highest Risk Level:</strong> <span style='color: $HighestRiskColor; font-weight: bold;'>$HighestRisk</span></p>`n"
+        $html += "            <p><strong>Total Issues:</strong> $IssueCount</p>`n"
+        $html += "            <p><strong>Affected Users:</strong> $UserCount</p>`n"
+        $html += "            <hr style='margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+
+        # Loop through all issues and show details
+        foreach ($issue in $Issues) {
+            $settingName = $issue.Setting
+            $currentValue = $issue.CurrentValue
+            $info = $CheckInfo[$settingName]
+
+            if ($info) {
+                $riskLevel = $info.RiskLevel
+                $riskColor = $info.RiskColor
+                $description = $info.Description
+                $remediation = $info.Remediation -replace "`n", "<br>"
+                $references = $info.References
+                $severity = $info.Severity
+                $exploitability = $info.Exploitability
+                $exposure = $info.Exposure
+                $riskScore = $info.RiskScore
+                $mitre = $info.MITRETechnique
+            }
+            else {
+                $riskLevel = "Unknown"
+                $riskColor = "#6c757d"
+                $description = "No detailed information available."
+                $remediation = "Please consult documentation."
+                $references = "N/A"
+                $severity = $null
+                $exploitability = $null
+                $exposure = $null
+                $riskScore = $null
+                $mitre = $null
+            }
+
+            $html += "<div style='margin-bottom: 25px; padding: 15px; background: #f9f9f9; border-left: 4px solid $riskColor; border-radius: 5px;'>`n"
+            $html += "    <h3 style='color: $riskColor; margin-bottom: 10px;'>$settingName</h3>`n"
+            $html += "    <p><strong>Current Value:</strong> $currentValue</p>`n"
+            $html += "    <p><strong>Risk Level:</strong> <span style='color: $riskColor; font-weight: bold;'>$riskLevel</span></p>`n"
+            if ($riskScore) {
+                $html += "    <p><strong>Risk Score:</strong> $riskScore (Severity: $severity × Exploitability: $exploitability × Exposure: $exposure)</p>`n"
+            }
+            if ($mitre) {
+                $html += "    <p><strong>MITRE ATT&CK:</strong> $mitre</p>`n"
+            }
+            $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+            $html += "    <p><strong>Description:</strong><br>$description</p>`n"
+            $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+            $html += "    <p><strong>Remediation:</strong><br>$remediation</p>`n"
+            if ($references) {
+                $html += "    <hr style='margin: 10px 0; border: none; border-top: 1px solid #e0e0e0;'>`n"
+                $html += "    <p><strong>References:</strong><br>$references</p>`n"
+            }
+            $html += "</div>`n"
+        }
+
+        $html += "        </div>`n"
+        $html += "    </div>`n"
+        $html += "</div>`n"
+
+        return $html
+    }
+    catch {
+        Write-Error "Failed to generate password policy modal HTML: $($_.Exception.Message)"
+        return ""
+    }
+}
+
+<#
+.SYNOPSIS
+    Generates HTML footer with JavaScript
+.PARAMETER TotalChecks
+    Total number of checks performed
+.PARAMETER TotalIssues
+    Total number of issues found
+.OUTPUTS
+    String containing footer HTML
+#>
+function Get-HTMLFooter {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$TotalChecks,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TotalIssues
+    )
+
+    try {
+        return @"
         </div>
         <div class="footer">
-            <p>Total checks performed: $totalChecks | Total issues found: $totalIssues</p>
+            <p>Total checks performed: $TotalChecks | Total issues found: $TotalIssues</p>
             <p>AD Security Scanner | Generated by PowerShell</p>
         </div>
     </div>
@@ -1052,7 +1599,7 @@ function Export-ToHTML {
             document.getElementById('view-' + moduleId).classList.add('active');
         }
 
-        // Toggle collapse van check sections
+        // Toggle collapse of check sections
         function toggleCheck(checkId) {
             const checkElement = document.getElementById(checkId).parentElement;
             checkElement.classList.toggle('collapsed');
@@ -1064,13 +1611,13 @@ function Export-ToHTML {
             modal.classList.add('show');
         }
 
-        // Sluit modal
+        // Close modal
         function closeModal(modalId) {
             const modal = document.getElementById(modalId);
             modal.classList.remove('show');
         }
 
-        // Sluit modal met ESC toets
+        // Close modal with ESC key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 document.querySelectorAll('.modal.show').forEach(modal => {
@@ -1079,14 +1626,14 @@ function Export-ToHTML {
             }
         });
 
-        // Collapse all functionaliteit
+        // Collapse all functionality
         function collapseAll() {
             document.querySelectorAll('.check').forEach(check => {
                 check.classList.add('collapsed');
             });
         }
 
-        // Expand all functionaliteit
+        // Expand all functionality
         function expandAll() {
             document.querySelectorAll('.check').forEach(check => {
                 check.classList.remove('collapsed');
@@ -1096,16 +1643,11 @@ function Export-ToHTML {
 </body>
 </html>
 "@
-
-    # Zorgt dat de Reports directory bestaat
-    $reportDir = Split-Path $OutputPath -Parent
-    if ($reportDir -and -not (Test-Path $reportDir)) {
-        New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
     }
-
-    # Schrijf naar bestand
-    $html | Out-File -FilePath $OutputPath -Encoding UTF8
-
-    Write-Host "`nHTML report successfully generated!" -ForegroundColor Green
-    Write-Host "Location: $OutputPath" -ForegroundColor Cyan
+    catch {
+        Write-Error "Failed to generate HTML footer: $($_.Exception.Message)"
+        return ""
+    }
 }
+
+#endregion
