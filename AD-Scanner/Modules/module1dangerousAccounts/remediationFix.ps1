@@ -22,6 +22,7 @@ function Set-PasswordNeverExpiresFix {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
+        [ValidateCount(1, [int]::MaxValue)]
         [Object[]]$Accounts
     )
 
@@ -58,6 +59,7 @@ function Set-PasswordNotRequiredFix {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
+        [ValidateCount(1, [int]::MaxValue)]
         [Object[]]$Accounts
     )
 
@@ -94,6 +96,7 @@ function Set-CannotChangePasswordFix {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
+        [ValidateCount(1, [int]::MaxValue)]
         [Object[]]$Accounts
     )
 
@@ -132,6 +135,7 @@ function Remove-DisabledAccountsFix {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
+        [ValidateCount(1, [int]::MaxValue)]
         [Object[]]$Accounts
     )
 
@@ -181,6 +185,7 @@ function Clear-AdminCountFix {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
+        [ValidateCount(1, [int]::MaxValue)]
         [Object[]]$Accounts
     )
 
