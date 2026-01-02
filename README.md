@@ -1082,14 +1082,6 @@ This project was developed with assistance from **Claude AI (Anthropic)** for:
   - [Kerberoasting](https://posts.specterops.io/kerberoasting-revisited-d434351bd4d1)
 - **HarmJ0y Research** - PowerView and AD enumeration techniques
   - [HarmJ0y's Blog](https://blog.harmj0y.net/)
-
-### Community & Open Source
-- PowerShell Gallery and the PowerShell community for scripting patterns
-- Active Directory security community for vulnerability research and remediation guidance
-
-### Special Thanks
-Special thanks to the information security community for continuous research and knowledge sharing that makes tools like this possible.
-
 ---
 
 **Developed for educational and authorized security testing purposes only.**
