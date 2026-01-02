@@ -28,76 +28,118 @@ $accountSettingsSPN = Get-SPNAccountSettings -servicePrincipalName $serviceAccou
 Write-Host "`n--- Encryption Settings ---" -ForegroundColor Cyan
 
 $weakEncryption = $encryptionSettingsSPN | Where-Object { $_.HasWeakEncryption -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $weakEncryption `
-    -MessageFound "SPN account(s) with weak encryption (DES or RC4 without AES)" `
-    -MessageNotFound "No SPN accounts with weak encryption found."
+$spnParams = @{
+    Accounts = $weakEncryption
+    MessageFound = "SPN account(s) with weak encryption (DES or RC4 without AES)"
+    MessageNotFound = "No SPN accounts with weak encryption found."
+}
+Show-SPNResults @spnParams
 
 $desEncryption = $encryptionSettingsSPN | Where-Object { $_.HasDES -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $desEncryption `
-    -MessageFound "SPN account(s) with DES encryption (CRITICAL)" `
-    -MessageNotFound "No SPN accounts with DES encryption found."
+$spnParams = @{
+    Accounts = $desEncryption
+    MessageFound = "SPN account(s) with DES encryption (CRITICAL)"
+    MessageNotFound = "No SPN accounts with DES encryption found."
+}
+Show-SPNResults @spnParams
 
 $rc4Only = $encryptionSettingsSPN | Where-Object { $_.HasRC4Only -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $rc4Only `
-    -MessageFound "SPN account(s) with RC4 only (no AES)" `
-    -MessageNotFound "No SPN accounts with RC4 only found."
+$spnParams = @{
+    Accounts = $rc4Only
+    MessageFound = "SPN account(s) with RC4 only (no AES)"
+    MessageNotFound = "No SPN accounts with RC4 only found."
+}
+Show-SPNResults @spnParams
 
 Write-Host "`n--- Account Settings ---" -ForegroundColor Cyan
 
 $pwNeverExpires = $accountSettingsSPN | Where-Object { $_.PasswordNeverExpires -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $pwNeverExpires `
-    -MessageFound "SPN account(s) with password never expires" `
-    -MessageNotFound "No SPN accounts with password never expires found."
+$spnParams = @{
+    Accounts = $pwNeverExpires
+    MessageFound = "SPN account(s) with password never expires"
+    MessageNotFound = "No SPN accounts with password never expires found."
+}
+Show-SPNResults @spnParams
 
 $pwNotRequired = $accountSettingsSPN | Where-Object { $_.PasswordNotRequired -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $pwNotRequired `
-    -MessageFound "SPN account(s) with password not required" `
-    -MessageNotFound "No SPN accounts with password not required found."
+$spnParams = @{
+    Accounts = $pwNotRequired
+    MessageFound = "SPN account(s) with password not required"
+    MessageNotFound = "No SPN accounts with password not required found."
+}
+Show-SPNResults @spnParams
 
 $cannotChangePw = $accountSettingsSPN | Where-Object { $_.CannotChangePassword -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $cannotChangePw `
-    -MessageFound "SPN account(s) that cannot change password" `
-    -MessageNotFound "No SPN accounts that cannot change password found."
+$spnParams = @{
+    Accounts = $cannotChangePw
+    MessageFound = "SPN account(s) that cannot change password"
+    MessageNotFound = "No SPN accounts that cannot change password found."
+}
+Show-SPNResults @spnParams
 
 $pwExpired = $accountSettingsSPN | Where-Object { $_.PasswordExpired -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $pwExpired `
-    -MessageFound "SPN account(s) with expired password" `
-    -MessageNotFound "No SPN accounts with expired password found."
+$spnParams = @{
+    Accounts = $pwExpired
+    MessageFound = "SPN account(s) with expired password"
+    MessageNotFound = "No SPN accounts with expired password found."
+}
+Show-SPNResults @spnParams
 
 $disabledAccounts = $accountSettingsSPN | Where-Object { $_.Enabled -eq $false } | Select-Object SamAccountName
-Show-SPNResults -Accounts $disabledAccounts `
-    -MessageFound "disabled SPN account(s)" `
-    -MessageNotFound "No disabled SPN accounts found."
+$spnParams = @{
+    Accounts = $disabledAccounts
+    MessageFound = "disabled SPN account(s)"
+    MessageNotFound = "No disabled SPN accounts found."
+}
+Show-SPNResults @spnParams
 
 $lockedOut = $accountSettingsSPN | Where-Object { $_.LockedOut -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $lockedOut `
-    -MessageFound "locked out SPN account(s)" `
-    -MessageNotFound "No locked out SPN accounts found."
+$spnParams = @{
+    Accounts = $lockedOut
+    MessageFound = "locked out SPN account(s)"
+    MessageNotFound = "No locked out SPN accounts found."
+}
+Show-SPNResults @spnParams
 
 $reversiblePw = $accountSettingsSPN | Where-Object { $_.allowReversiblePasswordEncryption -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $reversiblePw `
-    -MessageFound "SPN account(s) with reversible password encryption" `
-    -MessageNotFound "No SPN accounts with reversible password encryption found."
+$spnParams = @{
+    Accounts = $reversiblePw
+    MessageFound = "SPN account(s) with reversible password encryption"
+    MessageNotFound = "No SPN accounts with reversible password encryption found."
+}
+Show-SPNResults @spnParams
 
 $noPreAuth = $accountSettingsSPN | Where-Object { $_.doesNotRequirePreAuth -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $noPreAuth `
-    -MessageFound "SPN account(s) that do not require pre-authentication (AS-REP Roasting)" `
-    -MessageNotFound "No SPN accounts without pre-auth requirement found."
+$spnParams = @{
+    Accounts = $noPreAuth
+    MessageFound = "SPN account(s) that do not require pre-authentication (AS-REP Roasting)"
+    MessageNotFound = "No SPN accounts without pre-auth requirement found."
+}
+Show-SPNResults @spnParams
 
 $trustedDelegation = $accountSettingsSPN | Where-Object { $_.trustedForDelegation -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $trustedDelegation `
-    -MessageFound "SPN account(s) trusted for delegation (Unconstrained)" `
-    -MessageNotFound "No SPN accounts with unconstrained delegation found."
+$spnParams = @{
+    Accounts = $trustedDelegation
+    MessageFound = "SPN account(s) trusted for delegation (Unconstrained)"
+    MessageNotFound = "No SPN accounts with unconstrained delegation found."
+}
+Show-SPNResults @spnParams
 
 $trustedAuthDelegation = $accountSettingsSPN | Where-Object { $_.trustedToAuthForDelegation -eq $true } | Select-Object SamAccountName
-Show-SPNResults -Accounts $trustedAuthDelegation `
-    -MessageFound "SPN account(s) trusted to authenticate for delegation" `
-    -MessageNotFound "No SPN accounts with constrained delegation found."
+$spnParams = @{
+    Accounts = $trustedAuthDelegation
+    MessageFound = "SPN account(s) trusted to authenticate for delegation"
+    MessageNotFound = "No SPN accounts with constrained delegation found."
+}
+Show-SPNResults @spnParams
 
 $oldPasswords = $accountSettingsSPN | Where-Object { $_.passwordAgeDays -gt 90 } | Select-Object SamAccountName
-Show-SPNResults -Accounts $oldPasswords `
-    -MessageFound "SPN account(s) with password age >90 days" `
-    -MessageNotFound "No SPN accounts with old passwords (>90 days) found."
+$spnParams = @{
+    Accounts = $oldPasswords
+    MessageFound = "SPN account(s) with password age >90 days"
+    MessageNotFound = "No SPN accounts with old passwords (>90 days) found."
+}
+Show-SPNResults @spnParams
 
 # Mapping for checks.ps1 & HTML export
 $module2Results = @{

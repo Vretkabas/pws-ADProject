@@ -127,9 +127,12 @@ function Get-PasswordNeverExpiresAccounts {
             Select-Object Name, SamAccountName |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "account(s) with PasswordNeverExpires setting found" `
-            -MessageNotFound "No accounts with PasswordNeverExpires setting found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "account(s) with PasswordNeverExpires setting found"
+            MessageNotFound = "No accounts with PasswordNeverExpires setting found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -171,9 +174,12 @@ function Get-DisabledAccounts {
             } | Where-Object { $_ -ne $null } |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "disabled account(s) older than $DaysDisabled days" `
-            -MessageNotFound "No disabled accounts older than $DaysDisabled days found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "disabled account(s) older than $DaysDisabled days"
+            MessageNotFound = "No disabled accounts older than $DaysDisabled days found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -215,9 +221,12 @@ function Get-InactiveAccounts {
             } | Where-Object { $_ -ne $null } |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "inactive account(s) older than $DaysInactive days" `
-            -MessageNotFound "No inactive accounts older than $DaysInactive days found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "inactive account(s) older than $DaysInactive days"
+            MessageNotFound = "No inactive accounts older than $DaysInactive days found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -259,9 +268,12 @@ function Get-ExpiredAccounts {
             } | Where-Object { $_ -ne $null } |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "expired account(s) older than $DaysExpired days" `
-            -MessageNotFound "No expired accounts older than $DaysExpired days found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "expired account(s) older than $DaysExpired days"
+            MessageNotFound = "No expired accounts older than $DaysExpired days found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -287,9 +299,12 @@ function Get-LockedOutAccounts {
             Select-Object Name, SamAccountName |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "locked out account(s) found" `
-            -MessageNotFound "No locked out accounts found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "locked out account(s) found"
+            MessageNotFound = "No locked out accounts found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -315,9 +330,12 @@ function Get-PasswordExpiredAccounts {
             Select-Object Name, SamAccountName |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "account(s) with expired passwords found" `
-            -MessageNotFound "No accounts with expired passwords found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "account(s) with expired passwords found"
+            MessageNotFound = "No accounts with expired passwords found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -353,9 +371,12 @@ function Get-DescriptionPassword {
         } | Select-Object Name, SamAccountName, Description |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "account(s) with password in description found" `
-            -MessageNotFound "No accounts with password in description found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "account(s) with password in description found"
+            MessageNotFound = "No accounts with password in description found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -381,9 +402,12 @@ function Get-PasswordNotRequiredAccounts {
             Select-Object Name, SamAccountName |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "account(s) with PasswordNotRequired setting found" `
-            -MessageNotFound "No accounts with PasswordNotRequired setting found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "account(s) with PasswordNotRequired setting found"
+            MessageNotFound = "No accounts with PasswordNotRequired setting found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -410,9 +434,12 @@ function Get-CannotChangePasswordAccounts {
             Select-Object Name, SamAccountName |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "account(s) that cannot change password found" `
-            -MessageNotFound "No accounts that cannot change password found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "account(s) that cannot change password found"
+            MessageNotFound = "No accounts that cannot change password found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -448,9 +475,12 @@ function Get-OldPasswordAccounts {
             Select-Object Name, SamAccountName, PasswordLastSet |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "account(s) with passwords older than $DaysOld days found" `
-            -MessageNotFound "No accounts with passwords older than $DaysOld days found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "account(s) with passwords older than $DaysOld days found"
+            MessageNotFound = "No accounts with passwords older than $DaysOld days found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -493,9 +523,12 @@ function Get-AdminCountAccounts {
             Select-Object Name, SamAccountName |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "account(s) with adminCount=1 but not in protected groups found" `
-            -MessageNotFound "No orphaned adminCount accounts found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "account(s) with adminCount=1 but not in protected groups found"
+            MessageNotFound = "No orphaned adminCount accounts found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }
@@ -525,9 +558,12 @@ function Get-SIDHistoryAccounts {
             Select-Object Name, SamAccountName, @{Name = 'SIDHistory'; Expression = { $_.SIDHistory -join ', ' } } |
             Remove-DefaultAccounts
 
-        Show-AccountResults -Accounts $accounts `
-            -MessageFound "account(s) with SID history found" `
-            -MessageNotFound "No accounts with SID history found."
+        $showParams = @{
+            Accounts = $accounts
+            MessageFound = "account(s) with SID history found"
+            MessageNotFound = "No accounts with SID history found."
+        }
+        Show-AccountResults @showParams
 
         return $accounts
     }

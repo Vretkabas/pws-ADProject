@@ -41,15 +41,15 @@ function Get-RiskInfo {
     $riskScore = ($severity * $exploitability * $exposure) / 10
 
     # Determine risk level based on score (0-100 scale)
-    if ($riskScore -ge 73) {
+    if ($riskScore -ge 70) {
         $riskLevel = "Critical"
         $color = "#8B0000"  # Dark Red
     }
-    elseif ($riskScore -ge 34.4) {
+    elseif ($riskScore -ge 35) {
         $riskLevel = "High"
         $color = "#dc3545"  # Red
     }
-    elseif ($riskScore -ge 12.6) {
+    elseif ($riskScore -ge 12) {
         $riskLevel = "Medium"
         $color = "#ffc107"  # Yellow/Orange
     }
@@ -217,7 +217,7 @@ $checkInfo["Passwords in Description"] = @{
 }
 
 # Password Not Required
-$riskInfo = Get-RiskInfo -severity 10 -exploitability 10 -exposure 3
+$riskInfo = Get-RiskInfo -severity 10 -exploitability 10 -exposure 5
 $checkInfo["Password Not Required"] = @{
     Severity       = 10
     Exploitability = 10
@@ -652,7 +652,7 @@ $checkInfo["Password never expires on SPN accounts"] = @{
 }
 
 # Password not required on SPN accounts
-$riskInfo = Get-RiskInfo -severity 10 -exploitability 10 -exposure 2
+$riskInfo = Get-RiskInfo -severity 10 -exploitability 10 -exposure 7
 $checkInfo["Password not required on SPN accounts"] = @{
     Severity       = 10
     Exploitability = 10

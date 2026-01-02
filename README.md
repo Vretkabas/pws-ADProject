@@ -147,33 +147,220 @@ Audits Access Control Lists on critical AD objects:
 
 ## Usage
 
-### Run All Modules
+# AD Security Scanner Module - Usage Guide
 
+## Module Files Created
+
+- `ADSecurityScanner.psm1` - The PowerShell module file (contains all functions)
+- `ADSecurityScanner.psd1` - The module manifest file (metadata, version info, dependencies)
+
+## Installation
+
+### Option 1: Import from Current Directory
 ```powershell
-.\main.ps1
+# Navigate to the AD-Scanner directory
+cd C:\Dev-pws\pws-ADProject\AD-Scanner
+
+# Import the module
+Import-Module .\ADSecurityScanner.psd1 -Force
 ```
 
-### Run Specific Modules
-
+### Option 2: Install in PowerShell Module Path (Recommended)
 ```powershell
-# Run only Module 1
-.\main.ps1 -Modules "1"
+# Copy module to user's module directory
+$modulePath = "$env:USERPROFILE\Documents\PowerShell\Modules\ADSecurityScanner"
+New-Item -ItemType Directory -Path $modulePath -Force
 
-# Run multiple modules
-.\main.ps1 -Modules "1","2","3"
+Copy-Item "C:\Dev-pws\pws-ADProject\AD-Scanner\ADSecurityScanner.psm1" -Destination $modulePath
+Copy-Item "C:\Dev-pws\pws-ADProject\AD-Scanner\ADSecurityScanner.psd1" -Destination $modulePath
 
-# Run specific modules
-.\main.ps1 -Modules "2","4"
+# Now you can import from anywhere
+Import-Module ADSecurityScanner
 ```
 
-### Additional Options
+### Option 3: Install for All Users (Requires Admin)
+```powershell
+# Copy to system-wide module directory (requires admin)
+$modulePath = "$env:ProgramFiles\PowerShell\Modules\ADSecurityScanner"
+New-Item -ItemType Directory -Path $modulePath -Force
+
+Copy-Item "C:\Dev-pws\pws-ADProject\AD-Scanner\ADSecurityScanner.psm1" -Destination $modulePath
+Copy-Item "C:\Dev-pws\pws-ADProject\AD-Scanner\ADSecurityScanner.psd1" -Destination $modulePath
+
+# Import
+Import-Module ADSecurityScanner
+```
+
+## Verification
+
+Check if module is loaded correctly:
+```powershell
+# List all commands in the module
+Get-Command -Module ADSecurityScanner
+
+# Get module info
+Get-Module ADSecurityScanner | Format-List
+
+# Get help for main function
+Get-Help Invoke-ADSecurityScan -Full
+```
+
+## Usage Examples
+
+### 1. Basic Scan (All Modules)
+```powershell
+Import-Module ADSecurityScanner
+Invoke-ADSecurityScan
+```
+
+### 2. Scan Specific Modules
+```powershell
+# Only scan Module 1 and 2
+Invoke-ADSecurityScan -Modules "1","2"
+
+# Only scan Module 3
+Invoke-ADSecurityScan -Modules "3"
+```
+
+### 3. Custom Output Path
+```powershell
+Invoke-ADSecurityScan -OutputPath "C:\Reports\MyADScan.html"
+```
+
+### 4. Skip HTML (Get Results Object)
+```powershell
+$results = Invoke-ADSecurityScan -SkipHTML
+$results
+```
+
+### 5. Force Mode (Skip Prerequisite Checks)
+```powershell
+# NOT RECOMMENDED - only use if you know what you're doing
+Invoke-ADSecurityScan -Force
+```
+
+## Remediation Functions
+
+### Module 1: Dangerous Accounts
+
+#### Fix Password Never Expires
+```powershell
+# Get accounts with PasswordNeverExpires
+$accounts = Get-ADUser -Filter {PasswordNeverExpires -eq $true} -Properties PasswordNeverExpires
+
+# Fix them
+Set-PasswordNeverExpiresFix -Accounts $accounts
+```
+
+#### Fix Password Not Required
+```powershell
+$accounts = Get-ADUser -Filter {PasswordNotRequired -eq $true} -Properties PasswordNotRequired
+Set-PasswordNotRequiredFix -Accounts $accounts
+```
+
+#### Fix Cannot Change Password
+```powershell
+$accounts = Get-ADUser -Filter * -Properties CannotChangePassword |
+    Where-Object {$_.CannotChangePassword -eq $true}
+Set-CannotChangePasswordFix -Accounts $accounts
+```
+
+#### Remove Disabled Accounts (DESTRUCTIVE!)
+```powershell
+# WARNING: This permanently deletes accounts!
+$accounts = Get-ADUser -Filter {Enabled -eq $false}
+Remove-DisabledAccountsFix -Accounts $accounts
+# You will be prompted to type "DELETE" to confirm
+```
+
+#### Clear Orphaned AdminCount
+```powershell
+$accounts = Get-ADUser -Filter {adminCount -eq 1} -Properties adminCount
+Clear-AdminCountFix -Accounts $accounts
+```
+
+### Module 2: Kerberos SPN
+
+#### Fix Weak Kerberos Encryption
+```powershell
+# Get SPN accounts with weak encryption
+$spnAccounts = Get-ADUser -Filter {ServicePrincipalName -like "*"} -Properties ServicePrincipalName, 'msDS-SupportedEncryptionTypes'
+Set-KerberosEncryptionFix -Accounts $spnAccounts
+```
+
+#### Enable Kerberos Pre-Authentication
+```powershell
+$accounts = Get-ADUser -Filter {DoesNotRequirePreAuth -eq $true} -Properties DoesNotRequirePreAuth
+Enable-KerberosPreAuthFix -Accounts $accounts
+```
+
+## Testing the Module
 
 ```powershell
-# Skip HTML report generation
-.\main.ps1 -SkipHTML
+# Test import
+Import-Module .\ADSecurityScanner.psd1 -Force
 
-# Force execution without prerequisite checks (NOT RECOMMENDED)
-.\main.ps1 -Force
+# Verify commands are available
+Get-Command -Module ADSecurityScanner
+
+# Expected output:
+# CommandType     Name                                Version    Source
+# -----------     ----                                -------    ------
+# Function        Clear-AdminCountFix                 1.0.0      ADSecurityScanner
+# Function        Enable-KerberosPreAuthFix           1.0.0      ADSecurityScanner
+# Function        Invoke-ADSecurityScan               1.0.0      ADSecurityScanner
+# Function        Remove-DisabledAccountsFix          1.0.0      ADSecurityScanner
+# Function        Set-CannotChangePasswordFix         1.0.0      ADSecurityScanner
+# Function        Set-KerberosEncryptionFix           1.0.0      ADSecurityScanner
+# Function        Set-PasswordNeverExpiresFix         1.0.0      ADSecurityScanner
+# Function        Set-PasswordNotRequiredFix          1.0.0      ADSecurityScanner
+
+# Test help
+Get-Help Invoke-ADSecurityScan -Examples
+Get-Help Set-PasswordNeverExpiresFix -Full
+```
+
+## Troubleshooting
+
+### Module Not Found
+```powershell
+# Check if module is in the path
+$env:PSModulePath -split ';'
+
+# Check if files exist
+Test-Path .\ADSecurityScanner.psm1
+Test-Path .\ADSecurityScanner.psd1
+```
+
+### Import Errors
+```powershell
+# Import with verbose output to see what's happening
+Import-Module .\ADSecurityScanner.psd1 -Force -Verbose
+
+# Check for syntax errors
+Test-ModuleManifest .\ADSecurityScanner.psd1
+```
+
+### ActiveDirectory Module Not Found
+```powershell
+# Install RSAT tools on Windows 10/11
+Get-WindowsCapability -Name RSAT.ActiveDirectory* -Online | Add-WindowsCapability -Online
+
+# Or on Windows Server
+Install-WindowsFeature -Name RSAT-AD-PowerShell
+```
+
+## Uninstalling the Module
+
+```powershell
+# Remove from current session
+Remove-Module ADSecurityScanner
+
+# Delete from user modules (if installed there)
+Remove-Item "$env:USERPROFILE\Documents\PowerShell\Modules\ADSecurityScanner" -Recurse -Force
+
+# Delete from system modules (if installed there, requires admin)
+Remove-Item "$env:ProgramFiles\PowerShell\Modules\ADSecurityScanner" -Recurse -Force
 ```
 
 ### Prerequisite Checks
