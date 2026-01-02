@@ -1064,24 +1064,9 @@ This project was developed with assistance from **Claude AI (Anthropic)** for:
 ### Microsoft Documentation
 - **Active Directory Security Best Practices**
   - [Microsoft AD Security](https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/best-practices-for-securing-active-directory)
-- **Kerberos Authentication**
-  - [How Kerberos Authentication Works](https://docs.microsoft.com/en-us/windows-server/security/kerberos/kerberos-authentication-overview)
 - **Kerberos Constrained Delegation**
   - [Constrained Delegation Overview](https://docs.microsoft.com/en-us/windows-server/security/kerberos/kerberos-constrained-delegation-overview)
 - **Protected Users Security Group**
   - [Protected Users Group](https://docs.microsoft.com/en-us/windows-server/security/credentials-protection-and-management/protected-users-security-group)
-- **Group Managed Service Accounts (gMSA)**
-  - [Group Managed Service Accounts Overview](https://docs.microsoft.com/en-us/windows-server/security/group-managed-service-accounts/group-managed-service-accounts-overview)
-
-### Security Research & References
-- **ADSecurity.org** - Sean Metcalf's Active Directory security research
-  - [ADSecurity.org](https://adsecurity.org/)
-  - Delegation attacks, AdminSDHolder, and privilege escalation techniques
-- **SpecterOps Research** - Advanced AD attack research
-  - [Certified Pre-Owned (AD CS Attacks)](https://posts.specterops.io/certified-pre-owned-d95910965cd2)
-  - [Kerberoasting](https://posts.specterops.io/kerberoasting-revisited-d434351bd4d1)
-- **HarmJ0y Research** - PowerView and AD enumeration techniques
-  - [HarmJ0y's Blog](https://blog.harmj0y.net/)
----
 
 **Developed for educational and authorized security testing purposes only.**
